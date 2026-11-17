@@ -786,15 +786,15 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
         val ctx = context ?: getActivity() ?: return
         val layout = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            val p = AndroidUtilities.dp(20)
-            setPadding(p, AndroidUtilities.dp(10), p, AndroidUtilities.dp(6))
+            val p = AndroidUtilities.dp(20f)
+            setPadding(p, AndroidUtilities.dp(10f), p, AndroidUtilities.dp(6f))
         }
         val info = TextView(ctx).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
             setTextColor(Theme.getColor(Theme.key_dialogTextBlack))
             text = "Gemini API ключ (можно получить в Google AI Studio). Если оставить пустым — используется ключ из Настроек перевода (LLM):"
         }
-        layout.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8))
+        layout.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0f, 0f, 0f, 8f))
 
         val input = EditTextBoldCursor(ctx).apply {
             hint = "AIza..."
@@ -835,8 +835,8 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
 
         val layout = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            val p = AndroidUtilities.dp(20)
-            setPadding(p, AndroidUtilities.dp(10), p, AndroidUtilities.dp(6))
+            val p = AndroidUtilities.dp(20f)
+            setPadding(p, AndroidUtilities.dp(10f), p, AndroidUtilities.dp(6f))
         }
         val input = EditTextBoldCursor(ctx).apply {
             hint = "Личное досье / заметка о собеседнике (хранится локально)..."
@@ -881,8 +881,8 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             return
         }
         val scroll = ScrollView(activity).apply {
-            val p = AndroidUtilities.dp(20)
-            setPadding(p, AndroidUtilities.dp(8), p, AndroidUtilities.dp(4))
+            val p = AndroidUtilities.dp(20f)
+            setPadding(p, AndroidUtilities.dp(8f), p, AndroidUtilities.dp(4f))
         }
         val tv = TextView(activity).apply {
             setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f)
