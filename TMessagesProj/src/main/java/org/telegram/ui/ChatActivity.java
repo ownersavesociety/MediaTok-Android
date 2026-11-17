@@ -458,6 +458,7 @@ public class ChatActivity extends BaseFragment implements
 
     // chat click menu buttons
     public final static int nkbtn_detail = 2012;
+    public final static int mtbtn_ai_transcribe = 2099;
     public final static int nkbtn_deldlcache = 2013;
     public final static int nkbtn_view_history = 2014;
     public final static int nkbtn_repeat = 2015;
@@ -46584,6 +46585,10 @@ public class ChatActivity extends BaseFragment implements
                 presentFragment(new MessageDetailsActivity(selectedObject));
                 break;
             }
+            case mtbtn_ai_transcribe: {
+                xyz.nextalone.nagram.helper.MediaTokHelper.transcribeMedia(ChatActivity.this, currentAccount, selectedObject);
+                break;
+            }
             case nkbtn_view_history: {
                 // same as "search_from_user_id"
                 TLRPC.Peer peer = selectedObject.messageOwner.from_id;
@@ -48693,6 +48698,11 @@ public class ChatActivity extends BaseFragment implements
                 options.add(OPTION_DELETE);
                 icons.add(deleteIconRes);
             }
+            if (selectedObject != null && (selectedObject.isVoice() || selectedObject.isRoundVideo())) {
+                items.add("Расшифровать (AI)");
+                options.add(mtbtn_ai_transcribe);
+                icons.add(R.drawable.msg_translate);
+            }
             if (!selectedObject.isSponsored() && chatMode != MODE_QUICK_REPLIES && chatMode != MODE_SCHEDULED && NekoConfig.showMessageDetails.Bool()) {
                 items.add(LocaleController.getString(R.string.MessageDetails));
                 options.add(nkbtn_detail);
@@ -49148,6 +49158,11 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 }
+                if (selectedObject != null && (selectedObject.isVoice() || selectedObject.isRoundVideo())) {
+                    items.add("Расшифровать (AI)");
+                    options.add(mtbtn_ai_transcribe);
+                    icons.add(R.drawable.msg_translate);
+                }
                 if (NekoConfig.showMessageDetails.Bool()) {
                     items.add(LocaleController.getString(R.string.MessageDetails));
                     options.add(nkbtn_detail);
@@ -49376,6 +49391,11 @@ public class ChatActivity extends BaseFragment implements
                         options.add(nkbtn_PGPImport);
                         icons.add(R.drawable.baseline_vpn_key_24);
                     }
+                }
+                if (selectedObject != null && (selectedObject.isVoice() || selectedObject.isRoundVideo())) {
+                    items.add("Расшифровать (AI)");
+                    options.add(mtbtn_ai_transcribe);
+                    icons.add(R.drawable.msg_translate);
                 }
                 if (NekoConfig.showMessageDetails.Bool()) {
                     items.add(LocaleController.getString(R.string.MessageDetails));

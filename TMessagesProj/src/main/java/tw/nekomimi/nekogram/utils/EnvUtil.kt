@@ -40,7 +40,7 @@ object EnvUtil {
             }
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-                add(Environment.getExternalStoragePublicDirectory("Nagram"))
+                add(Environment.getExternalStoragePublicDirectory("MediaTok"))
             }
 
         }.map { it.path }.toTypedArray()

@@ -114,7 +114,7 @@ android {
     buildToolsVersion '36.0.0'
     ndkVersion rootProject.ext.ndkVersion // 27.2.12479018
 
-    defaultConfig.applicationId = "xyz.nextalone.nagram"
+    defaultConfig.applicationId = "com.mediatok.messenger"
 
     sourceSets {
 
@@ -190,6 +190,9 @@ android {
         if (properties != null) {
             appId = properties.getProperty("TELEGRAM_APP_ID") ?: System.getenv("TELEGRAM_APP_ID") ?: appId
             appHash = properties.getProperty("TELEGRAM_APP_HASH") ?: System.getenv("TELEGRAM_APP_HASH") ?: appHash
+        } else {
+            appId = System.getenv("TELEGRAM_APP_ID") ?: appId
+            appHash = System.getenv("TELEGRAM_APP_HASH") ?: appHash
         }
 
         buildConfigField "String", "BUILD_VERSION_STRING", "\"" + verName + "\""
@@ -301,7 +304,7 @@ android {
 
     applicationVariants.configureEach { variant ->
         variant.outputs.configureEach { output ->
-            String gramName = "Nagram"
+            String gramName = "MediaTok"
             String first = String.format("%s-v%s(%s)", gramName, versionName, versionCode)
             String name = outputFileName.replace("TMessagesProj", first)
             name = name.replace("-release", "")
@@ -565,5 +568,5 @@ sentry {
     // If disabled the plugin won't send telemetry data.
     // This is auto disabled if running against a self hosted instance of Sentry.
     // Default is enabled.
-    telemetry = true
+    telemetry = false
 }

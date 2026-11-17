@@ -317,6 +317,7 @@ public class ApplicationLoader extends Application {
             MessagesController.getInstance(account).putUser(user, true);
         }
         Utilities.stageQueue.postRunnable(() -> {
+            xyz.nextalone.nagram.helper.MediaTokHelper.ensureObservers(account);
             SendMessagesHelper.getInstance(account).checkUnsentMessages();
             ContactsController.getInstance(account).checkAppAccount();
             DownloadController.getInstance(account);

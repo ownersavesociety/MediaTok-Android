@@ -658,6 +658,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private final static int clear_cache = 104;
     private final static int add_to_folder = 105;
     private final static int open_direct = 106;
+    private final static int mt_dossier = 109;
 
     private Rect rect = new Rect();
 
@@ -3119,6 +3120,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else if (id == open_direct) {
                     if (currentChat == null) return;
                     presentFragment(ChatActivity.of(-currentChat.linked_monoforum_id));
+                } else if (id == mt_dossier) {
+                    long targetPeerId = userId != 0 ? userId : -chatId;
+                    String targetTitle = userId != 0
+                            ? UserObject.getForcedFirstName(getMessagesController().getUser(userId))
+                            : (currentChat != null ? currentChat.title : null);
+                    xyz.nextalone.nagram.helper.MediaTokHelper.openPeerNoteDialog(getParentActivity(), targetPeerId, targetTitle);
                 }
             }
         });
@@ -13030,6 +13037,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             otherItem.addSubItem(clear_cache, R.drawable.msg_delete, LocaleController.getString(R.string.ClearCache));
         }
+        otherItem.addSubItem(mt_dossier, R.drawable.msg_edit, "Заметка MediaTok");
         if (!isPulledDown) {
             otherItem.hideSubItem(gallery_menu_save);
             otherItem.hideSubItem(set_as_main);

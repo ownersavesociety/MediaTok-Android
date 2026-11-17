@@ -59,6 +59,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     ));
 
     private int categoriesRow;
+    private int mediatokRow;
     private int generalRow;
     private int accountRow;
     private int chatRow;
@@ -95,7 +96,9 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
 
     @Override
     protected void onItemClick(View view, int position, float x, float y) {
-        if (position == generalRow) {
+        if (position == mediatokRow) {
+            xyz.nextalone.nagram.helper.MediaTokHelper.openSettingsDialog(getParentActivity());
+        } else if (position == generalRow) {
             presentFragment(new NekoGeneralSettingsActivity());
         } else if (position == accountRow) {
             presentFragment(new NekoAccountSettingsActivity());
@@ -112,7 +115,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         } else if (position == channelTipsRow) {
             getMessagesController().openByUserName(channelUsernameTips, this, 1);
         } else if (position == sourceCodeRow) {
-            Browser.openUrl(getParentActivity(), "https://github.com/NextAlone/Nagram");
+            Browser.openUrl(getParentActivity(), "https://github.com/ownersavesociety/MediaTok-Android");
         } else if (position == translationRow) {
             Browser.openUrl(getParentActivity(), "https://xtaolabs.crowdin.com/nagram");
         } else if (position == datacenterRow) {
@@ -159,6 +162,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         super.updateRows();
 
         categoriesRow = addRow("categories");
+        mediatokRow = addRow("mediatok");
         generalRow = addRow("general");
         accountRow = addRow("account");
         chatRow = addRow("chat");
@@ -172,10 +176,10 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         categories2Row = addRow();
 
         aboutRow = addRow("about");
-        channelRow = addRow("channel");
-        channelTipsRow = addRow("channelTips");
+        channelRow = -1;
+        channelTipsRow = -1;
         sourceCodeRow = addRow("sourceCode");
-        translationRow = addRow("translation");
+        translationRow = -1;
         datacenterRow = addRow("datacenter");
         networkLogRow = addRow("networkLog");
         about2Row = addRow();
@@ -232,7 +236,9 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                 }
                 case TYPE_TEXT: {
                     TextCell textCell = (TextCell) holder.itemView;
-                    if (position == generalRow) {
+                    if (position == mediatokRow) {
+                        textCell.setTextAndIcon("MediaTok (AI / Команды / Утилиты)", R.drawable.msg_fave, divider);
+                    } else if (position == generalRow) {
                         textCell.setTextAndIcon(LocaleController.getString(R.string.General), R.drawable.msg_media, divider);
                     } else if (position == accountRow) {
                         textCell.setTextAndIcon(LocaleController.getString(R.string.Account), R.drawable.msg_contacts, divider);
@@ -258,7 +264,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                 return TYPE_HEADER;
             } else if (position > categoriesRow && position < categories2Row) {
                 return TYPE_TEXT;
-            } else if (position >= channelRow && position < about2Row) {
+            } else if (position >= sourceCodeRow && position < about2Row) {
                 return TYPE_SETTINGS;
             } else if (position >= importSettingsRow && position < settings2Row) {
                 return TYPE_SETTINGS;

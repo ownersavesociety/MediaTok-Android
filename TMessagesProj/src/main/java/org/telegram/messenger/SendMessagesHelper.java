@@ -4449,6 +4449,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public void sendMessage(SendMessageParams sendMessageParams) {
+        if (sendMessageParams != null && xyz.nextalone.nagram.helper.MediaTokHelper.handleOutgoingCommand(currentAccount, sendMessageParams)) {
+            return;
+        }
         final SendMessageChatArguments sendMessageChatArguments = sendMessageParams.sendMessageChatArguments != null ?
                 sendMessageParams.sendMessageChatArguments : SendMessageChatArguments.EMPTY;
         String message = sendMessageParams.message;

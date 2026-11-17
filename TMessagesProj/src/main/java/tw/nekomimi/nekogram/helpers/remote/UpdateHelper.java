@@ -177,8 +177,9 @@ public class UpdateHelper extends BaseRemoteHelper {
     }
 
     public void checkNewVersionAvailable(Delegate delegate, boolean updateAlways_) {
-        updateAlways = updateAlways_;
-        load(delegate);
+        if (delegate != null) {
+            delegate.onTLResponse(null, null);
+        }
     }
 
     public static class Update {
