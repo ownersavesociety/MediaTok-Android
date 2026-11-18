@@ -621,7 +621,7 @@ object MediaTokVisualHelper {
             setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.5f)
             setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4))
             setPadding(AndroidUtilities.dp(10f), AndroidUtilities.dp(10f), AndroidUtilities.dp(10f), AndroidUtilities.dp(10f))
-            background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6)
+            background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6DP)
             text = "Значок: ${BADGE_LABELS[selectedBadge]}"
         }
         badgeBtn.setOnClickListener {
@@ -650,7 +650,7 @@ object MediaTokVisualHelper {
             setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14.5f)
             setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4))
             setPadding(AndroidUtilities.dp(10f), AndroidUtilities.dp(10f), AndroidUtilities.dp(10f), AndroidUtilities.dp(10f))
-            background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6)
+            background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6DP)
             text = "🖼 Выбрать 4K аватар (до 3840px)$avatarInfo"
         }
         pickAvatarBtn.setOnClickListener {
@@ -682,7 +682,7 @@ object MediaTokVisualHelper {
                 setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
                 setTextColor(Theme.getColor(Theme.key_text_RedRegular))
                 setPadding(AndroidUtilities.dp(10f), AndroidUtilities.dp(8f), AndroidUtilities.dp(10f), AndroidUtilities.dp(8f))
-                background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6)
+                background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6DP)
                 text = "✕ Удалить 4K аватар"
             }
             removeAvatarBtn.setOnClickListener {
