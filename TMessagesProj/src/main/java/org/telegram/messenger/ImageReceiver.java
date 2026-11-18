@@ -431,6 +431,12 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
             parentObject = object;
         }
         setUseRoundForThumbDrawable(true);
+        long visDid = object instanceof TLRPC.User ? ((TLRPC.User) object).id : (object instanceof TLRPC.Chat ? -((TLRPC.Chat) object).id : 0L);
+        String visAvatar = visDid != 0L ? xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(visDid) : null;
+        if (visAvatar != null) {
+            setImage(ImageLocation.getForPath(visAvatar), big ? "1024_1024" : "512_512", avatarDrawable, null, parentObject, 0);
+            return;
+        }
         BitmapDrawable strippedBitmap = null;
         boolean hasStripped = false;
         ImageLocation videoLocation = null;

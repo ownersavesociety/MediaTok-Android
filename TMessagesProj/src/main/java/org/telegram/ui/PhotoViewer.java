@@ -14212,7 +14212,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     return true;
                 }
             }
-        } else if (currentLocation != null && currentLocation.location.local_id == currentAvatarLocation.location.local_id && currentLocation.location.volume_id == currentAvatarLocation.location.volume_id) {
+        } else if (currentLocation != null && (currentLocation.location != null && currentAvatarLocation.location != null
+                ? (currentLocation.location.local_id == currentAvatarLocation.location.local_id && currentLocation.location.volume_id == currentAvatarLocation.location.volume_id)
+                : (currentLocation.path != null && TextUtils.equals(currentLocation.path, currentAvatarLocation.path)))) {
             return true;
         }
         return false;
@@ -16170,7 +16172,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             }
             ImageLocation old = currentFileLocation;
             ImageLocation newLocation = imagesArrLocations.get(index);
-            if (init && old != null && newLocation != null && old.location.local_id == newLocation.location.local_id && old.location.volume_id == newLocation.location.volume_id) {
+            if (init && old != null && newLocation != null && (old.location != null && newLocation.location != null
+                    ? (old.location.local_id == newLocation.location.local_id && old.location.volume_id == newLocation.location.volume_id)
+                    : (old.path != null && TextUtils.equals(old.path, newLocation.path)))) {
                 sameImage = true;
             }
             currentFileLocation = imagesArrLocations.get(index);
@@ -17374,7 +17378,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                         filter = null;
                     }
                     boolean autoDownload = (DownloadController.getInstance(currentAccount).getAutodownloadMask() & DownloadController.AUTODOWNLOAD_TYPE_PHOTO) != 0;
-                    boolean needFullImage = autoDownload || currentIndex == index || FileLoader.getInstance(currentAccount).getPathToAttach(fileLocation).exists();
+                    boolean needFullImage = imageLocation.path != null || autoDownload || currentIndex == index || (fileLocation != null && FileLoader.getInstance(currentAccount).getPathToAttach(fileLocation).exists());
                     ImageLocation imageThumbLocation = placeHolder == null ? ImageLocation.getForObject(thumbLocation, photoObject) : null;
                     BitmapDrawable thumbPlaceHolder = placeHolder != null ? new BitmapDrawable(placeHolder.bitmap) : null;
                     int cacheType = cacheOnly ? 1 : 0;

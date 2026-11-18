@@ -157,7 +157,7 @@ public class DialogObject {
                     imageReceiver.setForUserOrChat(null, avatarDrawable);
                 }
             } else {
-                title = UserObject.getUserName(user);
+                title = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePeerName(user.id, UserObject.getUserName(user));
                 if (avatarDrawable != null) {
                     avatarDrawable.setInfo(user);
                 }
@@ -167,7 +167,7 @@ public class DialogObject {
             }
         } else if (dialog instanceof TLRPC.Chat) {
             TLRPC.Chat chat = (TLRPC.Chat) dialog;
-            title = chat.title;
+            title = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePeerName(-chat.id, chat.title);
             if (avatarDrawable != null) {
                 avatarDrawable.setInfo(chat);
             }
@@ -201,10 +201,17 @@ public class DialogObject {
     @NonNull
     public static String getName(TLObject obj) {
         if (obj instanceof TLRPC.User) {
-            return AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(UserObject.getUserName((TLRPC.User) obj)));
+            final TLRPC.User u = (TLRPC.User) obj;
+            String vis = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualName(u.id);
+            if (vis != null) return vis;
+            return AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(UserObject.getUserName(u)));
         } else if (obj instanceof TLRPC.Chat) {
             final TLRPC.Chat chat = (TLRPC.Chat) obj;
-            return chat != null ? chat.title : "";
+            if (chat != null) {
+                String vis = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualName(-chat.id);
+                return vis != null ? vis : chat.title;
+            }
+            return "";
         } else {
             return "";
         }

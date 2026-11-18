@@ -1537,38 +1537,60 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 if (currentDialogFolderId == 0 && !isTopic) {
                     long dialogBotVerificationIcon = 0;
                     if (chat != null) {
+                        long visDid = -chat.id;
                         dialogBotVerificationIcon = DialogObject.getBotVerificationIcon(chat);
-                        if (chat.scam) {
+                        boolean effScam = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveScam(visDid, chat.scam);
+                        boolean effFake = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveFake(visDid, chat.fake);
+                        boolean effVerif = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveVerified(visDid, chat.verifiedExtended());
+                        boolean effPrem = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePremium(visDid, false);
+                        boolean hideEmoji = xyz.nextalone.nagram.helper.MediaTokVisualHelper.shouldHideEmojiStatus(visDid);
+                        int badgeMode = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualBadgeMode(visDid);
+                        if (effScam) {
                             drawScam = 1;
                             Theme.dialogs_scamDrawable.checkText();
-                        } else if (chat.fake) {
+                        } else if (effFake) {
                             drawScam = 2;
                             Theme.dialogs_fakeDrawable.checkText();
-                        } else if (DialogObject.getEmojiStatusDocumentId(chat.emoji_status) != 0) {
+                        } else if (badgeMode == xyz.nextalone.nagram.helper.MediaTokVisualHelper.BADGE_VERIFIED) {
+                            drawVerified = !forbidVerified;
+                        } else if (badgeMode == xyz.nextalone.nagram.helper.MediaTokVisualHelper.BADGE_PREMIUM || effPrem) {
+                            drawPremium = true;
+                            nameLayoutEllipsizeByGradient = true;
+                            emojiStatus.center = LocaleController.isRTL;
+                            emojiStatus.set(PremiumGradient.getInstance().premiumStarDrawableMini, false);
+                            emojiStatus.setParticles(false, false);
+                        } else if (!hideEmoji && DialogObject.getEmojiStatusDocumentId(chat.emoji_status) != 0) {
                             drawPremium = true;
                             nameLayoutEllipsizeByGradient = true;
                             emojiStatus.center = LocaleController.isRTL;
                             emojiStatus.set(DialogObject.getEmojiStatusDocumentId(chat.emoji_status), false);
                             emojiStatus.setParticles(DialogObject.isEmojiStatusCollectible(chat.emoji_status), false);
                         } else {
-                            drawVerified = !forbidVerified && chat.verifiedExtended();
-                            drawBotVerified = !forbidVerified && chat.bot_verification_icon != 0;
+                            drawVerified = !forbidVerified && effVerif;
+                            drawBotVerified = !forbidVerified && !hideEmoji && chat.bot_verification_icon != 0;
                         }
                     } else if (user != null) {
+                        long visDid = user.id;
                         dialogBotVerificationIcon = DialogObject.getBotVerificationIcon(user);
-                        if (user.scam) {
+                        boolean effScam = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveScam(visDid, user.scam);
+                        boolean effFake = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveFake(visDid, user.fake);
+                        boolean effVerif = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveVerified(visDid, user.verifiedExtended());
+                        boolean hideEmoji = xyz.nextalone.nagram.helper.MediaTokVisualHelper.shouldHideEmojiStatus(visDid);
+                        int badgeMode = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualBadgeMode(visDid);
+                        if (effScam) {
                             drawScam = 1;
                             Theme.dialogs_scamDrawable.checkText();
-                        } else if (user.fake) {
+                        } else if (effFake) {
                             drawScam = 2;
                             Theme.dialogs_fakeDrawable.checkText();
                         } else {
-                            drawVerified = !forbidVerified && user.verifiedExtended();
-                            drawBotVerified = !forbidVerified && !UserObject.isUserSelf(user) && user.bot_verification_icon != 0;
+                            drawVerified = !forbidVerified && effVerif;
+                            drawBotVerified = !forbidVerified && !hideEmoji && !UserObject.isUserSelf(user) && user.bot_verification_icon != 0;
                         }
-                        drawPremium = MessagesController.getInstance(currentAccount).isPremiumUser(user) && UserConfig.getInstance(currentAccount).clientUserId != user.id && user.id != 0;
+                        boolean realPrem = MessagesController.getInstance(currentAccount).isPremiumUser(user) && UserConfig.getInstance(currentAccount).clientUserId != user.id && user.id != 0;
+                        drawPremium = !effScam && !effFake && (badgeMode == xyz.nextalone.nagram.helper.MediaTokVisualHelper.BADGE_PREMIUM || (!hideEmoji && realPrem));
                         if (drawPremium) {
-                            Long emojiStatusId = UserObject.getEmojiStatusDocumentId(user);
+                            Long emojiStatusId = (!hideEmoji && badgeMode != xyz.nextalone.nagram.helper.MediaTokVisualHelper.BADGE_PREMIUM) ? UserObject.getEmojiStatusDocumentId(user) : null;
                             emojiStatus.center = LocaleController.isRTL;
                             if (emojiStatusId != null) {
                                 nameLayoutEllipsizeByGradient = true;
@@ -2286,10 +2308,10 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                             sb.setSpan(new FilterCreateActivity.TextSpan(getString(R.string.MonoforumSpan), 9.33f, Theme.key_windowBackgroundWhiteGrayText, resourcesProvider), index, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                             nameString = sb;
                         } else {
-                            nameString = AndroidUtilities.escape(chat.title);
+                            nameString = AndroidUtilities.escape(xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePeerName(-chat.id, chat.title));
                         }
                     } else {
-                        nameString = AndroidUtilities.escape(chat.title);
+                        nameString = AndroidUtilities.escape(xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePeerName(-chat.id, chat.title));
                     }
                 } else if (user != null) {
                     if (UserObject.isReplyUser(user)) {
@@ -2314,7 +2336,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                         topicIconInName[0] = null;
                         nameString = showTopicIconInName ? ForumUtilities.getTopicSpannedName(forumTopic, Theme.dialogs_namePaint[paintIndex], topicIconInName, false) : AndroidUtilities.escape(forumTopic.title);
                     } else {
-                        nameString = AndroidUtilities.escape(UserObject.getUserName(user));
+                        nameString = AndroidUtilities.escape(xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePeerName(user.id, UserObject.getUserName(user)));
                     }
                 }
                 if (nameString != null && nameString.length() == 0) {

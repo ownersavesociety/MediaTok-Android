@@ -20659,18 +20659,41 @@ public class ChatActivity extends BaseFragment implements
         } else if (chatMode == MODE_PINNED) {
             avatarContainer.setTitle(LocaleController.formatPluralString("PinnedMessagesCount", getPinnedMessagesCount()));
         } else if (currentChat != null) {
-            avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(currentChat.title)), currentChat.scam, currentChat.fake, currentChat.verifiedExtended(), false, currentChat.emoji_status, animated);
+            long visDid = -currentChat.id;
+            String titleStr = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePeerName(visDid, currentChat.title);
+            boolean effScam = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveScam(visDid, currentChat.scam);
+            boolean effFake = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveFake(visDid, currentChat.fake);
+            boolean effVerif = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveVerified(visDid, currentChat.verifiedExtended());
+            boolean effPrem = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePremium(visDid, false);
+            TLRPC.EmojiStatus effEmoji = xyz.nextalone.nagram.helper.MediaTokVisualHelper.shouldHideEmojiStatus(visDid)
+                    || xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualBadgeMode(visDid) == xyz.nextalone.nagram.helper.MediaTokVisualHelper.BADGE_PREMIUM
+                    ? null : currentChat.emoji_status;
+            avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(titleStr)), effScam, effFake, effVerif, effPrem, effEmoji, animated);
         } else if (currentUser != null) {
             if (currentUser.self) {
                 avatarContainer.setTitle(LocaleController.getString(R.string.SavedMessages));
-            } else if (!MessagesController.isSupportUser(currentUser) && getContactsController().contactsDict.get(currentUser.id) == null && (getContactsController().contactsDict.size() != 0 || !getContactsController().isLoadingContacts())) {
-                if (!TextUtils.isEmpty(currentUser.phone)) {
-                    avatarContainer.setTitle(PhoneFormat.getInstance().format("+" + currentUser.phone), currentUser.scam, currentUser.fake, currentUser.verifiedExtended(), getMessagesController().isPremiumUser(currentUser), currentUser.emoji_status, animated);
-                } else {
-                    avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(UserObject.getUserName(currentUser))), currentUser.scam, currentUser.fake, currentUser.verifiedExtended(), getMessagesController().isPremiumUser(currentUser), currentUser.emoji_status, animated);
-                }
             } else {
-                avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(UserObject.getUserName(currentUser))), currentUser.scam, currentUser.fake, currentUser.verifiedExtended(), getMessagesController().isPremiumUser(currentUser), !MessagesController.isSupportUser(currentUser) ? currentUser.emoji_status : null, animated);
+                long visDid = currentUser.id;
+                boolean effScam = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveScam(visDid, currentUser.scam);
+                boolean effFake = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveFake(visDid, currentUser.fake);
+                boolean effVerif = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolveVerified(visDid, currentUser.verifiedExtended());
+                boolean effPrem = xyz.nextalone.nagram.helper.MediaTokVisualHelper.resolvePremium(visDid, getMessagesController().isPremiumUser(currentUser));
+                TLRPC.EmojiStatus effEmoji = xyz.nextalone.nagram.helper.MediaTokVisualHelper.shouldHideEmojiStatus(visDid)
+                        || xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualBadgeMode(visDid) == xyz.nextalone.nagram.helper.MediaTokVisualHelper.BADGE_PREMIUM
+                        || MessagesController.isSupportUser(currentUser)
+                        ? null : currentUser.emoji_status;
+                String visName = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualName(visDid);
+                if (visName != null) {
+                    avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(visName)), effScam, effFake, effVerif, effPrem, effEmoji, animated);
+                } else if (!MessagesController.isSupportUser(currentUser) && getContactsController().contactsDict.get(currentUser.id) == null && (getContactsController().contactsDict.size() != 0 || !getContactsController().isLoadingContacts())) {
+                    if (!TextUtils.isEmpty(currentUser.phone)) {
+                        avatarContainer.setTitle(PhoneFormat.getInstance().format("+" + currentUser.phone), effScam, effFake, effVerif, effPrem, effEmoji, animated);
+                    } else {
+                        avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(UserObject.getUserName(currentUser))), effScam, effFake, effVerif, effPrem, effEmoji, animated);
+                    }
+                } else {
+                    avatarContainer.setTitle(AndroidUtilities.removeRTL(AndroidUtilities.removeDiacritics(UserObject.getUserName(currentUser))), effScam, effFake, effVerif, effPrem, effEmoji, animated);
+                }
             }
         }
         setParentActivityTitle(avatarContainer.getTitleTextView().getText());
@@ -21503,6 +21526,9 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
+        if (xyz.nextalone.nagram.helper.MediaTokVisualHelper.handleActivityResult(requestCode, resultCode, data, currentAccount, this)) {
+            return;
+        }
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == 0 || requestCode == 2) {
                 createChatAttachView();

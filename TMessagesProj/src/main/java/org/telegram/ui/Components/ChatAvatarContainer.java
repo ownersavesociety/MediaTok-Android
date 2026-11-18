@@ -970,7 +970,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             titleTextView.setRightDrawable2(verifiedDrawable);
             rightDrawableIsScamOrVerified = true;
             rightDrawable2ContentDescription = getString(R.string.AccDescrVerified);
-        } else if (titleTextView.getRightDrawable() instanceof ScamDrawable) {
+        } else {
             titleTextView.setRightDrawable2(null);
             rightDrawableIsScamOrVerified = false;
             rightDrawable2ContentDescription = null;

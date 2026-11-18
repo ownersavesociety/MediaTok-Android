@@ -249,7 +249,7 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 }
                 true
             }
-            else -> false
+            else -> MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
         }
     }
 
@@ -766,6 +766,10 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 append("• .delme [N|10m|2h] — удалить свои сообщения\n")
                 append("• .wipe / .unwipe — авто-удаление входящих в ЛС\n")
                 append("• .mtkey <API_KEY> — быстро сохранить Gemini ключ\n")
+                append("• .vis — визуальный профиль + 4K аватар\n")
+                append("• .visname <имя|off>, .visuser <@u1 @u2|off>, .visalso <@u2|off>\n")
+                append("• .visbio <текст|off>, .visphone <тел|off>, .visbadge <verified|premium|scam|fake|hide|off>\n")
+                append("• .visclear — сбросить визуал чата\n")
                 append("• .mt / .help — эта шпаргалка")
             }
             AlertDialog.Builder(activity)

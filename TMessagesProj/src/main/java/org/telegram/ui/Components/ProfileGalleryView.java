@@ -569,7 +569,7 @@ public class ProfileGalleryView extends CircularViewPager implements Notificatio
 
     public void setChatInfo(TLRPC.ChatFull chatFull) {
         chatInfo = chatFull;
-        if (!photos.isEmpty() && photos.get(0) == null && chatInfo != null && imagesLocations.get(0) != null && FileLoader.isSamePhoto(imagesLocations.get(0).location, chatInfo.chat_photo)) {
+        if (!photos.isEmpty() && photos.get(0) == null && chatInfo != null && imagesLocations.get(0) != null && imagesLocations.get(0).location != null && FileLoader.isSamePhoto(imagesLocations.get(0).location, chatInfo.chat_photo)) {
             photos.set(0, chatInfo.chat_photo);
             if (!chatInfo.chat_photo.video_sizes.isEmpty()) {
                 final TLRPC.VideoSize videoSize = FileLoader.getClosestVideoSizeWithSize(chatInfo.chat_photo.video_sizes, 1000);
@@ -591,14 +591,29 @@ public class ProfileGalleryView extends CircularViewPager implements Notificatio
         if (imageLocation == null || thumbLocation == null || settingMainPhoto != 0) {
             return false;
         }
-        if (prevImageLocation == null || prevImageLocation.location.local_id != imageLocation.location.local_id) {
+        boolean locationChanged = prevImageLocation == null || (prevImageLocation.location == null || imageLocation.location == null
+                ? !TextUtils.equals(prevImageLocation.path, imageLocation.path)
+                : prevImageLocation.location.local_id != imageLocation.location.local_id);
+        if (locationChanged) {
             if (!imagesLocations.isEmpty()) {
                 prevImageLocation = imageLocation;
-                if (reload && dialogPhotos != null) {
-                    dialogPhotos.reset();
-                    dialogPhotos.loadAfter(getCurrentItem() - (adapter != null ? adapter.getExtraCount() : 0), true);
+                if (imageLocation.path != null) {
+                    thumbsFileNames.clear();
+                    videoFileNames.clear();
+                    imagesLocations.clear();
+                    thumbsLocations.clear();
+                    vectorAvatars.clear();
+                    videoLocations.clear();
+                    photos.clear();
+                    imagesLocationsSizes.clear();
+                    imagesUploadProgress.clear();
+                } else {
+                    if (reload && dialogPhotos != null) {
+                        dialogPhotos.reset();
+                        dialogPhotos.loadAfter(getCurrentItem() - (adapter != null ? adapter.getExtraCount() : 0), true);
+                    }
+                    return true;
                 }
-                return true;
             } else {
                 if (reload && dialogPhotos != null) {
                     dialogPhotos.reset();
@@ -919,6 +934,9 @@ public class ProfileGalleryView extends CircularViewPager implements Notificatio
         if (id == NotificationCenter.dialogPhotosUpdate) {
             MessagesController.DialogPhotos dialogPhotos = (MessagesController.DialogPhotos) args[0];
             if (this.dialogPhotos == dialogPhotos) {
+                if (xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(dialogId) != null && !imagesLocations.isEmpty()) {
+                    return;
+                }
                 ArrayList<TLRPC.Photo> arrayList = new ArrayList<>(dialogPhotos.photos);
                 if (arrayList.isEmpty() && dialogPhotos.fromCache) {
                     return;
@@ -956,7 +974,7 @@ public class ProfileGalleryView extends CircularViewPager implements Notificatio
                         thumbsLocations.add(ImageLocation.getForUserOrChat(currentAccount, chat, ImageLocation.TYPE_SMALL));
                         vectorAvatars.add(null);
                         thumbsFileNames.add(null);
-                        if (chatInfo != null && FileLoader.isSamePhoto(currentImageLocation.location, chatInfo.chat_photo)) {
+                        if (chatInfo != null && currentImageLocation.location != null && FileLoader.isSamePhoto(currentImageLocation.location, chatInfo.chat_photo)) {
                             photos.add(chatInfo.chat_photo);
                             if (!chatInfo.chat_photo.video_sizes.isEmpty()) {
                                 final TLRPC.VideoSize videoSize = FileLoader.getClosestVideoSizeWithSize(chatInfo.chat_photo.video_sizes, 1000);
