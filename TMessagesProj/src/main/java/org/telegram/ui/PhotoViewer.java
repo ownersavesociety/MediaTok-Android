@@ -10192,7 +10192,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             videoEditedInfo.bitrate = muteVideo ? -1 : originalBitrate;
         } else {
             if (muteVideo || sendPhotoType == SELECT_TYPE_AVATAR) {
-                selectedCompression = 1;
+                selectedCompression = Math.max(0, compressionsCount - 1);
                 updateWidthHeightBitrateForCompression();
             }
             videoEditedInfo.resultWidth = resultWidth;
@@ -10213,11 +10213,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 videoEditedInfo.cropState.transformHeight = (int) (videoEditedInfo.resultHeight * videoEditedInfo.cropState.cropPh);
             }
             if (sendPhotoType == SELECT_TYPE_AVATAR) {
-                if (videoEditedInfo.cropState.transformWidth > 800) {
-                    videoEditedInfo.cropState.transformWidth = 800;
+                if (videoEditedInfo.cropState.transformWidth > 1280) {
+                    videoEditedInfo.cropState.transformWidth = 1280;
                 }
-                if (videoEditedInfo.cropState.transformHeight > 800) {
-                    videoEditedInfo.cropState.transformHeight = 800;
+                if (videoEditedInfo.cropState.transformHeight > 1280) {
+                    videoEditedInfo.cropState.transformHeight = 1280;
                 }
                 videoEditedInfo.cropState.transformWidth = videoEditedInfo.cropState.transformHeight = Math.min(videoEditedInfo.cropState.transformWidth, videoEditedInfo.cropState.transformHeight);
             }
@@ -13938,9 +13938,18 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     return null;
                 }
                 if (videoLocation != null && videoLocation != location) {
-                    return videoLocation.location.volume_id + "_" + videoLocation.location.local_id + ".mp4";
-                } else {
+                    if (videoLocation.location != null) {
+                        return videoLocation.location.volume_id + "_" + videoLocation.location.local_id + ".mp4";
+                    } else if (videoLocation.path != null) {
+                        return new File(videoLocation.path).getName();
+                    }
+                    return null;
+                } else if (location.location != null) {
                     return location.location.volume_id + "_" + location.location.local_id + ".jpg";
+                } else if (location.path != null) {
+                    return new File(location.path).getName();
+                } else {
+                    return null;
                 }
             } else {
                 if (index >= imagesArr.size()) {
@@ -17425,8 +17434,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         boolean result = false;
         if (Instance != null) {
             result = Instance.isVisible && !Instance.disableShowCheck && object != null &&
-                    ((Instance.currentFileLocation != null && object.local_id == Instance.currentFileLocation.location.local_id && object.volume_id == Instance.currentFileLocation.location.volume_id && object.dc_id == Instance.currentFileLocation.dc_id) ||
-                            (Instance.currentFileLocationVideo != null && object.local_id == Instance.currentFileLocationVideo.location.local_id && object.volume_id == Instance.currentFileLocationVideo.location.volume_id && object.dc_id == Instance.currentFileLocationVideo.dc_id));
+                    ((Instance.currentFileLocation != null && Instance.currentFileLocation.location != null && object.local_id == Instance.currentFileLocation.location.local_id && object.volume_id == Instance.currentFileLocation.location.volume_id && object.dc_id == Instance.currentFileLocation.dc_id) ||
+                            (Instance.currentFileLocationVideo != null && Instance.currentFileLocationVideo.location != null && object.local_id == Instance.currentFileLocationVideo.location.local_id && object.volume_id == Instance.currentFileLocationVideo.location.volume_id && object.dc_id == Instance.currentFileLocationVideo.dc_id));
         }
         return result;
     }

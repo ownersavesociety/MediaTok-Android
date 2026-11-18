@@ -173,10 +173,17 @@ public class ImageLocation {
     }
 
     public static ImageLocation getForUser(int currentAccount, TLRPC.User user, int type) {
-        if (user != null && type != TYPE_STRIPPED && type != TYPE_VIDEO_BIG && type != TYPE_VIDEO_SMALL) {
-            String visAvatar = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(user.id);
-            if (visAvatar != null) {
-                return getForPath(visAvatar);
+        if (user != null) {
+            if (type == TYPE_VIDEO_BIG || type == TYPE_VIDEO_SMALL) {
+                ImageLocation visVideo = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarVideoImageLocation(user.id);
+                if (visVideo != null) {
+                    return visVideo;
+                }
+            } else if (type != TYPE_STRIPPED) {
+                String visAvatar = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(user.id);
+                if (visAvatar != null) {
+                    return getForPath(visAvatar);
+                }
             }
         }
         if (user == null || user.photo == null) {
@@ -261,10 +268,17 @@ public class ImageLocation {
         return getForChat(UserConfig.selectedAccount, chat, type);
     }
     public static ImageLocation getForChat(int currentAccount, TLRPC.Chat chat, int type) {
-        if (chat != null && type != TYPE_STRIPPED && type != TYPE_VIDEO_BIG && type != TYPE_VIDEO_SMALL) {
-            String visAvatar = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(-chat.id);
-            if (visAvatar != null) {
-                return getForPath(visAvatar);
+        if (chat != null) {
+            if (type == TYPE_VIDEO_BIG || type == TYPE_VIDEO_SMALL) {
+                ImageLocation visVideo = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarVideoImageLocation(-chat.id);
+                if (visVideo != null) {
+                    return visVideo;
+                }
+            } else if (type != TYPE_STRIPPED) {
+                String visAvatar = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(-chat.id);
+                if (visAvatar != null) {
+                    return getForPath(visAvatar);
+                }
             }
         }
         if (chat == null || chat.photo == null) {

@@ -129,6 +129,28 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
 
     private int type;
     public final int setForType;
+    private long customVisualDialogId;
+
+    public void setVisualDialogId(long dialogId) {
+        this.customVisualDialogId = dialogId;
+    }
+
+    private long resolveVisualTargetDialogId() {
+        if (customVisualDialogId != 0L) {
+            return customVisualDialogId;
+        }
+        if (user != null) {
+            return user.id;
+        }
+        if (parentFragment instanceof ProfileActivity) {
+            long d = ((ProfileActivity) parentFragment).getDialogId();
+            if (d != 0L) return d;
+        }
+        if (setForType == FOR_TYPE_USER && !forUser) {
+            return UserConfig.getInstance(currentAccount).getClientUserId();
+        }
+        return 0L;
+    }
 
     public void processEntry(MediaController.PhotoEntry photoEntry) {
         String path = null;
@@ -150,9 +172,9 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
             avatarObject.messageOwner.attachPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), SharedConfig.getLastLocalId() + "_avatar.mp4").getAbsolutePath();
             avatarObject.videoEditedInfo = photoEntry.editedInfo;
             avatarObject.emojiMarkup = photoEntry.emojiMarkup;
-            bitmap = ImageLoader.loadBitmap(photoEntry.thumbPath, null, 800, 800, true);
+            bitmap = ImageLoader.loadBitmap(photoEntry.thumbPath, null, 2560, 2560, true);
         } else {
-            bitmap = ImageLoader.loadBitmap(path, null, 800, 800, true);
+            bitmap = ImageLoader.loadBitmap(path, null, 2560, 2560, true);
         }
         processBitmap(false, bitmap, avatarObject);
     }
@@ -637,9 +659,9 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                 avatarObject.messageOwner.attachPath = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), SharedConfig.getLastLocalId() + "_avatar.mp4").getAbsolutePath();
                 avatarObject.videoEditedInfo = info.videoEditedInfo;
                 avatarObject.emojiMarkup = info.emojiMarkup;
-                bitmap = ImageLoader.loadBitmap(info.thumbPath, null, 800, 800, true);
+                bitmap = ImageLoader.loadBitmap(info.thumbPath, null, 2560, 2560, true);
             } else if (info.path != null) {
-                bitmap = ImageLoader.loadBitmap(info.path, null, 800, 800, true);
+                bitmap = ImageLoader.loadBitmap(info.path, null, 2560, 2560, true);
             } else if (info.searchImage != null) {
                 if (info.searchImage.photo != null) {
                     TLRPC.PhotoSize photoSize = FileLoader.getClosestPhotoSizeWithSize(info.searchImage.photo.sizes, AndroidUtilities.getPhotoSize());
@@ -653,7 +675,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                             }
                         }
                         if (path != null) {
-                            bitmap = ImageLoader.loadBitmap(path.getAbsolutePath(), null, 800, 800, true);
+                            bitmap = ImageLoader.loadBitmap(path.getAbsolutePath(), null, 2560, 2560, true);
                         } else {
                             NotificationCenter.getInstance(currentAccount).addObserver(ImageUpdater.this, NotificationCenter.fileLoaded);
                             NotificationCenter.getInstance(currentAccount).addObserver(ImageUpdater.this, NotificationCenter.fileLoadFailed);
@@ -666,7 +688,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                     File cacheFile = new File(FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE), md5);
                     finalPath = cacheFile.getAbsolutePath();
                     if (cacheFile.exists() && cacheFile.length() != 0) {
-                        bitmap = ImageLoader.loadBitmap(cacheFile.getAbsolutePath(), null, 800, 800, true);
+                        bitmap = ImageLoader.loadBitmap(cacheFile.getAbsolutePath(), null, 2560, 2560, true);
                     } else {
                         uploadingImage = info.searchImage.imageUrl;
                         NotificationCenter.getInstance(currentAccount).addObserver(ImageUpdater.this, NotificationCenter.httpFileDidLoad);
@@ -804,7 +826,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                 activity.presentFragment(photoCropActivity);
             } catch (Exception e) {
                 FileLog.e(e);
-                Bitmap bitmap = ImageLoader.loadBitmap(path, uri, 800, 800, true);
+                Bitmap bitmap = ImageLoader.loadBitmap(path, uri, 2560, 2560, true);
                 processBitmap(false, bitmap, null);
             }
         });
@@ -883,7 +905,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
         convertingVideo = null;
         videoPath = null;
         vectorMarkup = avatarObject == null ? null : avatarObject.emojiMarkup;
-        bigPhoto = ImageLoader.scaleAndSaveImage(bitmap, 800, 800, 80, false, 320, 320);
+        bigPhoto = ImageLoader.scaleAndSaveImage(bitmap, 2560, 2560, 96, false, 320, 320);
         smallPhoto = ImageLoader.scaleAndSaveImage(bitmap, 150, 150, 80, false, 150, 150);
         if (smallPhoto != null) {
             try {
@@ -892,6 +914,12 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                 ImageLoader.getInstance().putImageToCache(new BitmapDrawable(b), key, true);
             } catch (Throwable ignore) {
 
+            }
+        }
+        if (uploadAfterSelect && (avatarObject == null || avatarObject.videoEditedInfo == null)) {
+            long visTargetDid = resolveVisualTargetDialogId();
+            if (visTargetDid != 0L) {
+                xyz.nextalone.nagram.helper.MediaTokVisualHelper.onNativeAvatarUploaded(currentAccount, visTargetDid, bitmap, null);
             }
         }
         bitmap.recycle();
@@ -1016,7 +1044,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
 
                 uploadingImage = null;
                 if (id == NotificationCenter.fileLoaded || id == NotificationCenter.httpFileDidLoad) {
-                    Bitmap bitmap = ImageLoader.loadBitmap(finalPath, null, 800, 800, true);
+                    Bitmap bitmap = ImageLoader.loadBitmap(finalPath, null, 2560, 2560, true);
                     processBitmap(false, bitmap, null);
                 } else {
                     imageReceiver.setImageBitmap((Drawable) null);
@@ -1065,7 +1093,7 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                         }
                         path.delete();
                     }
-                    bigPhoto = ImageLoader.scaleAndSaveImage(bitmap, 800, 800, 80, false, 320, 320);
+                    bigPhoto = ImageLoader.scaleAndSaveImage(bitmap, 2560, 2560, 96, false, 320, 320);
                     smallPhoto = ImageLoader.scaleAndSaveImage(bitmap, 150, 150, 80, false, 150, 150);
                     if (smallPhoto != null) {
                         try {
@@ -1075,6 +1103,10 @@ public class ImageUpdater implements NotificationCenter.NotificationCenterDelega
                         } catch (Throwable ignore) {
 
                         }
+                    }
+                    long visTargetDid = resolveVisualTargetDialogId();
+                    if (visTargetDid != 0L) {
+                        xyz.nextalone.nagram.helper.MediaTokVisualHelper.onNativeAvatarUploaded(currentAccount, visTargetDid, bitmap, finalPath);
                     }
                 }
 

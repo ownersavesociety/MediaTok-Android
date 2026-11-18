@@ -7277,12 +7277,15 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         long targetDid = userId != 0 ? userId : (chatId != 0 ? -chatId : 0L);
         String vis4k = targetDid != 0L ? xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(targetDid) : null;
-        if (vis4k != null) {
-            TLRPC.FileLocation fakeLoc = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarFakeLocation(targetDid);
-            ImageLocation visLoc = ImageLocation.getForPath(vis4k);
+        ImageLocation visVideoLoc = targetDid != 0L ? xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarVideoImageLocation(targetDid) : null;
+        if (vis4k != null || visVideoLoc != null) {
+            TLRPC.FileLocation fakeLoc = vis4k != null
+                    ? xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarFakeLocation(targetDid)
+                    : xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarVideoFakeLocation(targetDid);
+            ImageLocation visLoc = vis4k != null ? ImageLocation.getForPath(vis4k) : visVideoLoc;
             if (fakeLoc != null && visLoc != null) {
                 PhotoViewer.getInstance().setParentActivity(ProfileActivity.this);
-                PhotoViewer.getInstance().openPhotoWithVideo(fakeLoc, visLoc, null, provider);
+                PhotoViewer.getInstance().openPhotoWithVideo(fakeLoc, visLoc, visVideoLoc, provider);
                 return;
             }
         }
@@ -11971,24 +11974,29 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             setCollectibleGiftStatus(user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible ? (TLRPC.TL_emojiStatusCollectible) user.emoji_status : null);
 
 
+            xyz.nextalone.nagram.helper.MediaTokVisualHelper.checkGlobal4kAvatarForPeer(currentAccount, user.id);
             final boolean hasVisAvatar = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(user.id) != null;
+            final ImageLocation visVideoAvatar = xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarVideoImageLocation(user.id);
             final ImageLocation imageLocation = ImageLocation.getForUserOrChat(user, ImageLocation.TYPE_BIG);
             final ImageLocation thumbLocation = ImageLocation.getForUserOrChat(user, ImageLocation.TYPE_SMALL);
-            final ImageLocation videoThumbLocation = hasVisAvatar ? null : ImageLocation.getForUserOrChat(user, ImageLocation.TYPE_VIDEO_BIG);
+            final ImageLocation videoThumbLocation = (hasVisAvatar || visVideoAvatar != null) ? null : ImageLocation.getForUserOrChat(user, ImageLocation.TYPE_VIDEO_BIG);
             VectorAvatarThumbDrawable vectorAvatarThumbDrawable = null;
             TLRPC.VideoSize vectorAvatar = null;
-            if (!hasVisAvatar && userInfo != null) {
+            if (!hasVisAvatar && visVideoAvatar == null && userInfo != null) {
                 vectorAvatar = FileLoader.getVectorMarkupVideoSize(user.photo != null && user.photo.personal ? userInfo.personal_photo : userInfo.profile_photo);
                 if (vectorAvatar != null) {
                     vectorAvatarThumbDrawable = new VectorAvatarThumbDrawable(vectorAvatar, user.premium, VectorAvatarThumbDrawable.TYPE_PROFILE);
                 }
             }
-            final ImageLocation videoLocation = hasVisAvatar ? null : avatarsViewPager.getCurrentVideoLocation(thumbLocation, imageLocation);
+            final ImageLocation videoLocation = visVideoAvatar != null ? visVideoAvatar : (hasVisAvatar ? null : avatarsViewPager.getCurrentVideoLocation(thumbLocation, imageLocation));
             if (avatar == null) {
-                avatarsViewPager.initIfEmpty(vectorAvatarThumbDrawable, imageLocation, thumbLocation, !hasVisAvatar && reload);
+                avatarsViewPager.initIfEmpty(vectorAvatarThumbDrawable, imageLocation, thumbLocation, !hasVisAvatar && visVideoAvatar == null && reload);
             }
             if (avatarBig == null) {
-                if (hasVisAvatar) {
+                if (visVideoAvatar != null) {
+                    avatarImage.getImageReceiver().setVideoThumbIsSame(true);
+                    avatarImage.setImage(visVideoAvatar, ImageLoader.AUTOPLAY_FILTER, imageLocation, "512_512", thumbLocation, "512_512", avatarDrawable, user);
+                } else if (hasVisAvatar) {
                     avatarImage.setImage(imageLocation, "512_512", thumbLocation, "512_512", avatarDrawable, user);
                 } else if (vectorAvatar != null) {
                     avatarImage.setImageDrawable(vectorAvatarThumbDrawable);
@@ -12566,8 +12574,14 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 photoBig = chat.photo.photo_big;
             }
 
+            if (!isTopic && !ChatObject.isMonoForum(currentChat)) {
+                xyz.nextalone.nagram.helper.MediaTokVisualHelper.checkGlobal4kAvatarForPeer(currentAccount, -chat.id);
+            }
+            final ImageLocation visChatVideo = (!isTopic && !ChatObject.isMonoForum(currentChat))
+                    ? xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarVideoImageLocation(-chat.id)
+                    : null;
             final boolean hasVisChatAvatar = !isTopic && !ChatObject.isMonoForum(currentChat)
-                    && xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(-chat.id) != null;
+                    && (xyz.nextalone.nagram.helper.MediaTokVisualHelper.getVisualAvatarPath(-chat.id) != null || visChatVideo != null);
             final ImageLocation imageLocation;
             final ImageLocation thumbLocation;
             final ImageLocation videoLocation;
@@ -12586,7 +12600,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 avatarDrawable.setInfo(currentAccount, chat);
                 imageLocation = ImageLocation.getForUserOrChat(currentAccount, chat, ImageLocation.TYPE_BIG);
                 thumbLocation = ImageLocation.getForUserOrChat(currentAccount, chat, ImageLocation.TYPE_SMALL);
-                if (!hasVisChatAvatar && avatarsViewPager != null) {
+                if (visChatVideo != null) {
+                    videoLocation = visChatVideo;
+                } else if (!hasVisChatAvatar && avatarsViewPager != null) {
                     videoLocation = avatarsViewPager.getCurrentVideoLocation(thumbLocation, imageLocation);
                 } else {
                     videoLocation = null;
@@ -12601,7 +12617,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             String filter;
-            if (hasVisChatAvatar) {
+            if (visChatVideo != null) {
+                filter = ImageLoader.AUTOPLAY_FILTER;
+            } else if (hasVisChatAvatar) {
                 filter = "512_512";
             } else if (videoLocation != null && videoLocation.imageType == FileLoader.IMAGE_TYPE_ANIMATION) {
                 filter = ImageLoader.AUTOPLAY_FILTER;
@@ -12609,7 +12627,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 filter = null;
             }
             if (avatarBig == null && !isTopic) {
-                if (hasVisChatAvatar) {
+                if (visChatVideo != null) {
+                    avatarImage.getImageReceiver().setVideoThumbIsSame(true);
+                    avatarImage.setImage(visChatVideo, filter, imageLocation, "512_512", thumbLocation, "512_512", avatarDrawable, chat);
+                } else if (hasVisChatAvatar) {
                     avatarImage.setImage(imageLocation, "512_512", thumbLocation, "512_512", avatarDrawable, chat);
                 } else {
                     avatarImage.setImage(videoLocation, filter, thumbLocation, "50_50", avatarDrawable, chat);

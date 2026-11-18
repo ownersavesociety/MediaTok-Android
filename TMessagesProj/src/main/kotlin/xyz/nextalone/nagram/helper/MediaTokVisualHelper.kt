@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.text.InputType
 import android.text.TextUtils
@@ -21,6 +22,7 @@ import androidx.exifinterface.media.ExifInterface
 import org.json.JSONObject
 import org.telegram.messenger.AndroidUtilities
 import org.telegram.messenger.ApplicationLoader
+import org.telegram.messenger.FileLoader
 import org.telegram.messenger.FileLog
 import org.telegram.messenger.ImageLocation
 import org.telegram.messenger.LocaleController
@@ -36,10 +38,17 @@ import org.telegram.ui.Components.EditTextBoldCursor
 import org.telegram.ui.Components.LayoutHelper
 import org.telegram.ui.LaunchActivity
 import org.telegram.ui.ProfileActivity
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.DataOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -50,7 +59,11 @@ data class VisualPeerOverride(
     var bio: String = "",
     var phone: String = "",
     var badgeMode: Int = MediaTokVisualHelper.BADGE_DEFAULT,
-    var avatarPath: String = ""
+    var avatarPath: String = "",
+    var avatarVideoPath: String = "",
+    var remotePhotoUrl: String = "",
+    var remoteVideoUrl: String = "",
+    var remoteUpdatedAt: Long = 0L
 ) {
     fun isEmpty(): Boolean {
         return name.isEmpty() &&
@@ -59,7 +72,11 @@ data class VisualPeerOverride(
             bio.isEmpty() &&
             phone.isEmpty() &&
             badgeMode == MediaTokVisualHelper.BADGE_DEFAULT &&
-            avatarPath.isEmpty()
+            avatarPath.isEmpty() &&
+            avatarVideoPath.isEmpty() &&
+            remotePhotoUrl.isEmpty() &&
+            remoteVideoUrl.isEmpty() &&
+            remoteUpdatedAt == 0L
     }
 }
 
@@ -68,6 +85,7 @@ object MediaTokVisualHelper {
     private const val PREFS_NAME = "mediatok_prefs"
     private const val PREFIX_VIS = "vis_profile_"
     private const val MAX_AVATAR_4K_PX = 3840
+    private const val GLOBAL_SYNC_TTL_MS = 10L * 60L * 1000L
     const val REQUEST_CODE_VISUAL_AVATAR = 9482
 
     const val BADGE_DEFAULT = 0
@@ -87,8 +105,10 @@ object MediaTokVisualHelper {
     )
 
     private const val FAKE_VOLUME_ID = -900900900900L
+    private const val FAKE_VIDEO_VOLUME_BASE = -9000001000L
 
     private val cache = ConcurrentHashMap<Long, VisualPeerOverride>()
+    private val lastGlobalCheckMs = ConcurrentHashMap<Long, Long>()
 
     @Volatile
     private var cacheLoaded = false
@@ -135,7 +155,11 @@ object MediaTokVisualHelper {
                 bio = obj.optString("bio", ""),
                 phone = obj.optString("phone", ""),
                 badgeMode = obj.optInt("badge", BADGE_DEFAULT).coerceIn(BADGE_DEFAULT, BADGE_HIDE),
-                avatarPath = obj.optString("avatar", "")
+                avatarPath = obj.optString("avatar", ""),
+                avatarVideoPath = obj.optString("avatarVideo", ""),
+                remotePhotoUrl = obj.optString("remotePhotoUrl", ""),
+                remoteVideoUrl = obj.optString("remoteVideoUrl", ""),
+                remoteUpdatedAt = obj.optLong("remoteUpdatedAt", 0L)
             )
         } catch (_: Throwable) {
             null
@@ -159,6 +183,10 @@ object MediaTokVisualHelper {
             if (ov.phone.isNotEmpty()) put("phone", ov.phone)
             if (ov.badgeMode != BADGE_DEFAULT) put("badge", ov.badgeMode)
             if (ov.avatarPath.isNotEmpty()) put("avatar", ov.avatarPath)
+            if (ov.avatarVideoPath.isNotEmpty()) put("avatarVideo", ov.avatarVideoPath)
+            if (ov.remotePhotoUrl.isNotEmpty()) put("remotePhotoUrl", ov.remotePhotoUrl)
+            if (ov.remoteVideoUrl.isNotEmpty()) put("remoteVideoUrl", ov.remoteVideoUrl)
+            if (ov.remoteUpdatedAt != 0L) put("remoteUpdatedAt", ov.remoteUpdatedAt)
         }
         prefs().edit().putString(key, obj.toString()).apply()
     }
@@ -379,6 +407,18 @@ object MediaTokVisualHelper {
     }
 
     @JvmStatic
+    fun getVisualAvatarVideoPath(dialogId: Long): String? {
+        val p = getOverride(dialogId)?.avatarVideoPath
+        if (p.isNullOrBlank()) return null
+        return try {
+            val f = File(p)
+            if (f.exists() && f.isFile && f.length() > 0L) p else null
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    @JvmStatic
     fun getVisualAvatarImageLocation(dialogId: Long): ImageLocation? {
         val p = getVisualAvatarPath(dialogId) ?: return null
         return ImageLocation.getForPath(p)
@@ -391,6 +431,39 @@ object MediaTokVisualHelper {
             volume_id = FAKE_VOLUME_ID
             local_id = (dialogId xor (dialogId ushr 32)).toInt()
             dc_id = 1
+        }
+    }
+
+    @JvmStatic
+    fun getVisualAvatarVideoFakeLocation(dialogId: Long): TLRPC.FileLocation? {
+        val visVideo = getVisualAvatarVideoPath(dialogId) ?: return null
+        val srcFile = File(visVideo)
+        val volumeId = FAKE_VIDEO_VOLUME_BASE - abs(dialogId % 1000000000L)
+        val localId = ((srcFile.lastModified() / 1000L) xor dialogId).toInt()
+        try {
+            val cacheDir = FileLoader.getDirectory(FileLoader.MEDIA_DIR_CACHE)
+            if (!cacheDir.exists()) cacheDir.mkdirs()
+            val cacheFile = File(cacheDir, "${volumeId}_${localId}.mp4")
+            if (!cacheFile.exists() || cacheFile.length() != srcFile.length()) {
+                srcFile.copyTo(cacheFile, overwrite = true)
+            }
+        } catch (e: Throwable) {
+            FileLog.e(e)
+        }
+        return TLRPC.TL_fileLocationToBeDeprecated().apply {
+            volume_id = volumeId
+            local_id = localId
+            dc_id = 1
+        }
+    }
+
+    @JvmStatic
+    fun getVisualAvatarVideoImageLocation(dialogId: Long): ImageLocation? {
+        val visVideo = getVisualAvatarVideoPath(dialogId) ?: return null
+        val fakeLoc = getVisualAvatarVideoFakeLocation(dialogId) ?: return null
+        return ImageLocation.getForPath(visVideo)?.apply {
+            location = fakeLoc
+            imageType = FileLoader.IMAGE_TYPE_ANIMATION
         }
     }
 
@@ -409,12 +482,15 @@ object MediaTokVisualHelper {
         return dir
     }
 
-    private fun deleteOldAvatarFiles(dialogId: Long) {
+    private fun deleteOldAvatarFiles(dialogId: Long, keepPhotoName: String? = null, keepVideoName: String? = null) {
         try {
             val dir = avatarStorageDir()
-            val prefix = "avatar_${dialogId}_"
+            val photoPrefix = "avatar_${dialogId}_"
+            val videoPrefix = "avatar_vid_${dialogId}_"
             dir.listFiles()?.forEach { f ->
-                if (f.name.startsWith(prefix)) {
+                if (f.name.startsWith(photoPrefix) && f.name != keepPhotoName) {
+                    f.delete()
+                } else if (f.name.startsWith(videoPrefix) && f.name != keepVideoName) {
                     f.delete()
                 }
             }
@@ -423,10 +499,90 @@ object MediaTokVisualHelper {
         }
     }
 
+    private fun scaleBitmapTo4k(src: Bitmap): Bitmap {
+        val curMax = max(src.width, src.height)
+        if (curMax <= MAX_AVATAR_4K_PX) {
+            return src
+        }
+        val ratio = MAX_AVATAR_4K_PX.toFloat() / curMax.toFloat()
+        val dstW = (src.width * ratio).roundToInt().coerceAtLeast(1)
+        val dstH = (src.height * ratio).roundToInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(src, dstW, dstH, true)
+    }
+
     private fun importAvatarFromUri(uri: Uri, dialogId: Long, account: Int, fragment: BaseFragment?) {
         Thread {
             try {
                 val cr = ApplicationLoader.applicationContext.contentResolver
+                val mime = cr.getType(uri)?.lowercase(Locale.ROOT).orEmpty()
+                val uriStr = uri.toString().lowercase(Locale.ROOT)
+                val isVideo = mime.startsWith("video/") ||
+                    uriStr.endsWith(".mp4") ||
+                    uriStr.endsWith(".mov") ||
+                    uriStr.endsWith(".webm") ||
+                    uriStr.endsWith(".mkv")
+
+                if (isVideo) {
+                    val ts = System.currentTimeMillis()
+                    val vidFile = File(avatarStorageDir(), "avatar_vid_${dialogId}_${ts}.mp4")
+                    cr.openInputStream(uri)?.use { input ->
+                        FileOutputStream(vidFile).use { output ->
+                            input.copyTo(output, 65536)
+                            output.flush()
+                        }
+                    }
+                    if (!vidFile.exists() || vidFile.length() <= 0L) {
+                        toast("MediaTok: не удалось прочитать видео")
+                        return@Thread
+                    }
+                    var coverBmp: Bitmap? = null
+                    val retriever = MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(vidFile.absolutePath)
+                        coverBmp = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                            ?: retriever.frameAtTime
+                    } catch (e: Throwable) {
+                        FileLog.e(e)
+                    } finally {
+                        try {
+                            retriever.release()
+                        } catch (_: Throwable) {
+                        }
+                    }
+                    if (coverBmp == null) {
+                        vidFile.delete()
+                        toast("MediaTok: не удалось извлечь кадр из видео")
+                        return@Thread
+                    }
+                    val scaledCover = scaleBitmapTo4k(coverBmp)
+                    if (scaledCover !== coverBmp) {
+                        coverBmp.recycle()
+                        coverBmp = scaledCover
+                    }
+                    val outW = coverBmp.width
+                    val outH = coverBmp.height
+                    val coverFile = File(avatarStorageDir(), "avatar_${dialogId}_${ts}.jpg")
+                    FileOutputStream(coverFile).use { fos ->
+                        coverBmp.compress(Bitmap.CompressFormat.JPEG, 95, fos)
+                        fos.flush()
+                    }
+                    coverBmp.recycle()
+                    deleteOldAvatarFiles(dialogId, keepPhotoName = coverFile.name, keepVideoName = vidFile.name)
+
+                    val nowSec = System.currentTimeMillis() / 1000L
+                    AndroidUtilities.runOnUIThread {
+                        val cur = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
+                        cur.avatarPath = coverFile.absolutePath
+                        cur.avatarVideoPath = vidFile.absolutePath
+                        cur.remoteUpdatedAt = nowSec
+                        saveOverride(dialogId, cur)
+                        notifyPeerChanged(account, dialogId, fragment)
+                        toast("MediaTok: установлена 4K видео-ава (${outW}×${outH})")
+                    }
+                    publishGlobal4kAvatarAsync(account, dialogId, coverFile, vidFile, nowSec)
+                    return@Thread
+                }
+
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 cr.openInputStream(uri)?.use { stream ->
                     BitmapFactory.decodeStream(stream, null, bounds)
@@ -439,7 +595,7 @@ object MediaTokVisualHelper {
                 }
 
                 var sample = 1
-                var maxDim = max(rawW, rawH)
+                val maxDim = max(rawW, rawH)
                 while (maxDim / sample > MAX_AVATAR_4K_PX * 2) {
                     sample *= 2
                 }
@@ -478,41 +634,302 @@ object MediaTokVisualHelper {
                     }
                 }
 
-                val curMax = max(bmp.width, bmp.height)
-                if (curMax > MAX_AVATAR_4K_PX) {
-                    val ratio = MAX_AVATAR_4K_PX.toFloat() / curMax.toFloat()
-                    val dstW = (bmp.width * ratio).roundToInt().coerceAtLeast(1)
-                    val dstH = (bmp.height * ratio).roundToInt().coerceAtLeast(1)
-                    val scaled = Bitmap.createScaledBitmap(bmp, dstW, dstH, true)
-                    if (scaled !== bmp) {
-                        bmp.recycle()
-                        bmp = scaled
-                    }
+                val scaled = scaleBitmapTo4k(bmp)
+                if (scaled !== bmp) {
+                    bmp.recycle()
+                    bmp = scaled
                 }
 
                 val outW = bmp.width
                 val outH = bmp.height
-                deleteOldAvatarFiles(dialogId)
-                val outFile = File(avatarStorageDir(), "avatar_${dialogId}_${System.currentTimeMillis()}.jpg")
+                val ts = System.currentTimeMillis()
+                val outFile = File(avatarStorageDir(), "avatar_${dialogId}_${ts}.jpg")
                 FileOutputStream(outFile).use { fos ->
                     bmp.compress(Bitmap.CompressFormat.JPEG, 95, fos)
                     fos.flush()
                 }
                 bmp.recycle()
+                deleteOldAvatarFiles(dialogId, keepPhotoName = outFile.name, keepVideoName = null)
 
                 val absPath = outFile.absolutePath
+                val nowSec = System.currentTimeMillis() / 1000L
                 AndroidUtilities.runOnUIThread {
                     val cur = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
                     cur.avatarPath = absPath
+                    cur.avatarVideoPath = ""
+                    cur.remoteUpdatedAt = nowSec
                     saveOverride(dialogId, cur)
                     notifyPeerChanged(account, dialogId, fragment)
                     toast("MediaTok: установлен 4K аватар (${outW}×${outH})")
                 }
+                publishGlobal4kAvatarAsync(account, dialogId, outFile, null, nowSec)
             } catch (e: Throwable) {
                 FileLog.e(e)
                 toast("MediaTok: не удалось сохранить аватар (${e.message})")
             }
         }.start()
+    }
+
+    @JvmStatic
+    fun onNativeAvatarUploaded(account: Int, dialogId: Long, bitmap: Bitmap?, videoPath: String?) {
+        if (dialogId == 0L || (bitmap == null && videoPath.isNullOrBlank())) return
+        val copyBmp = try {
+            if (bitmap != null && !bitmap.isRecycled) {
+                val cfg = bitmap.config ?: Bitmap.Config.ARGB_8888
+                bitmap.copy(cfg, false)
+            } else {
+                null
+            }
+        } catch (_: Throwable) {
+            null
+        }
+        Thread {
+            try {
+                val ts = System.currentTimeMillis()
+                var savedPhoto: File? = null
+                var savedVideo: File? = null
+                if (!videoPath.isNullOrBlank()) {
+                    val srcVid = File(videoPath)
+                    if (srcVid.exists() && srcVid.length() > 0L) {
+                        val dstVid = File(avatarStorageDir(), "avatar_vid_${dialogId}_${ts}.mp4")
+                        srcVid.copyTo(dstVid, overwrite = true)
+                        savedVideo = dstVid
+                    }
+                }
+                if (copyBmp != null) {
+                    val scaled = scaleBitmapTo4k(copyBmp)
+                    val outPhoto = File(avatarStorageDir(), "avatar_${dialogId}_${ts}.jpg")
+                    FileOutputStream(outPhoto).use { fos ->
+                        scaled.compress(Bitmap.CompressFormat.JPEG, 96, fos)
+                        fos.flush()
+                    }
+                    if (scaled !== copyBmp) scaled.recycle()
+                    copyBmp.recycle()
+                    savedPhoto = outPhoto
+                }
+                if (savedPhoto == null && savedVideo == null) return@Thread
+                deleteOldAvatarFiles(dialogId, keepPhotoName = savedPhoto?.name, keepVideoName = savedVideo?.name)
+                val nowSec = System.currentTimeMillis() / 1000L
+                AndroidUtilities.runOnUIThread {
+                    val cur = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
+                    if (savedPhoto != null) cur.avatarPath = savedPhoto.absolutePath
+                    cur.avatarVideoPath = savedVideo?.absolutePath.orEmpty()
+                    cur.remoteUpdatedAt = nowSec
+                    saveOverride(dialogId, cur)
+                    notifyPeerChanged(account, dialogId, null)
+                }
+                publishGlobal4kAvatarAsync(account, dialogId, savedPhoto, savedVideo, nowSec)
+            } catch (e: Throwable) {
+                FileLog.e(e)
+            }
+        }.start()
+    }
+
+    private fun uploadToCatbox(file: File): String? {
+        if (!file.exists() || file.length() <= 0L) return null
+        var conn: HttpURLConnection? = null
+        return try {
+            val boundary = "----MediaTok4k${System.currentTimeMillis()}"
+            conn = (URL("https://catbox.moe/user/api.php").openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                doOutput = true
+                doInput = true
+                useCaches = false
+                connectTimeout = 20000
+                readTimeout = 60000
+                setRequestProperty("User-Agent", "MediaTok/4K")
+                setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            }
+            DataOutputStream(BufferedOutputStream(conn.outputStream)).use { out ->
+                out.writeBytes("--$boundary\r\n")
+                out.writeBytes("Content-Disposition: form-data; name=\"reqtype\"\r\n\r\n")
+                out.writeBytes("fileupload\r\n")
+                out.writeBytes("--$boundary\r\n")
+                out.writeBytes("Content-Disposition: form-data; name=\"fileToUpload\"; filename=\"${file.name}\"\r\n")
+                out.writeBytes("Content-Type: application/octet-stream\r\n\r\n")
+                FileInputStream(file).use { fis ->
+                    val buf = ByteArray(65536)
+                    var read: Int
+                    while (fis.read(buf).also { read = it } != -1) {
+                        out.write(buf, 0, read)
+                    }
+                }
+                out.writeBytes("\r\n--$boundary--\r\n")
+                out.flush()
+            }
+            if (conn.responseCode !in 200..299) return null
+            val res = conn.inputStream.bufferedReader().use { it.readText().trim() }
+            if (res.startsWith("https://")) res else null
+        } catch (e: Throwable) {
+            FileLog.e(e)
+            null
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    private fun downloadUrlToFile(urlStr: String, dst: File): Boolean {
+        if (!urlStr.startsWith("https://")) return false
+        var conn: HttpURLConnection? = null
+        return try {
+            conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15000
+                readTimeout = 45000
+                setRequestProperty("User-Agent", "MediaTok/4K")
+            }
+            if (conn.responseCode !in 200..299) return false
+            BufferedInputStream(conn.inputStream).use { input ->
+                FileOutputStream(dst).use { output ->
+                    input.copyTo(output, 65536)
+                    output.flush()
+                }
+            }
+            dst.exists() && dst.length() > 0L
+        } catch (e: Throwable) {
+            FileLog.e(e)
+            dst.delete()
+            false
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    private fun publishGlobal4kAvatarAsync(account: Int, dialogId: Long, photoFile: File?, videoFile: File?, ts: Long) {
+        Thread {
+            try {
+                val pUrl = photoFile?.let { uploadToCatbox(it) }.orEmpty()
+                val vUrl = videoFile?.let { uploadToCatbox(it) }.orEmpty()
+                if (pUrl.isEmpty() && vUrl.isEmpty()) return@Thread
+
+                val payload = JSONObject().apply {
+                    if (pUrl.isNotEmpty()) put("photoUrl", pUrl)
+                    if (vUrl.isNotEmpty()) put("videoUrl", vUrl)
+                    put("ts", ts)
+                }.toString()
+
+                var conn: HttpURLConnection? = null
+                try {
+                    conn = (URL("https://ntfy.sh/mt4k_v1_${dialogId}").openConnection() as HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        doOutput = true
+                        connectTimeout = 15000
+                        readTimeout = 15000
+                        setRequestProperty("Content-Type", "application/json")
+                        setRequestProperty("User-Agent", "MediaTok/4K")
+                    }
+                    conn.outputStream.use { os ->
+                        os.write(payload.toByteArray(Charsets.UTF_8))
+                        os.flush()
+                    }
+                    conn.responseCode
+                } finally {
+                    conn?.disconnect()
+                }
+
+                AndroidUtilities.runOnUIThread {
+                    val cur = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
+                    if (cur.remoteUpdatedAt <= ts) {
+                        if (pUrl.isNotEmpty()) cur.remotePhotoUrl = pUrl
+                        cur.remoteVideoUrl = vUrl
+                        cur.remoteUpdatedAt = ts
+                        saveOverride(dialogId, cur)
+                    }
+                }
+            } catch (e: Throwable) {
+                FileLog.e(e)
+            }
+        }.start()
+    }
+
+    @JvmStatic
+    fun checkGlobal4kAvatarForPeer(account: Int, dialogId: Long) {
+        if (dialogId == 0L) return
+        val nowMs = System.currentTimeMillis()
+        val prevMs = lastGlobalCheckMs[dialogId]
+        if (prevMs != null && nowMs - prevMs < GLOBAL_SYNC_TTL_MS) return
+        val claimed = if (prevMs == null) {
+            lastGlobalCheckMs.putIfAbsent(dialogId, nowMs) == null
+        } else {
+            lastGlobalCheckMs.replace(dialogId, prevMs, nowMs)
+        }
+        if (claimed) {
+            Thread {
+                var conn: HttpURLConnection? = null
+                try {
+                    conn = (URL("https://ntfy.sh/mt4k_v1_${dialogId}/raw?poll=1&since=all").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 10000
+                        readTimeout = 15000
+                        setRequestProperty("User-Agent", "MediaTok/4K")
+                    }
+                    if (conn.responseCode !in 200..299) return@Thread
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val lines = body.lines().asReversed()
+                    var latestObj: JSONObject? = null
+                    for (line in lines) {
+                        val trimmed = line.trim()
+                        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                            try {
+                                val cand = JSONObject(trimmed)
+                                if (cand.optString("photoUrl", "").startsWith("https://") ||
+                                    cand.optString("videoUrl", "").startsWith("https://")) {
+                                    latestObj = cand
+                                    break
+                                }
+                            } catch (_: Throwable) {
+                            }
+                        }
+                    }
+                    val obj = latestObj ?: return@Thread
+                    val remoteTs = obj.optLong("ts", 0L)
+                    val photoUrl = obj.optString("photoUrl", "")
+                    val videoUrl = obj.optString("videoUrl", "")
+                    val cur = getOverride(dialogId)
+                    if (remoteTs <= 0L || remoteTs <= (cur?.remoteUpdatedAt ?: 0L)) return@Thread
+                    if (photoUrl.isEmpty() && videoUrl.isEmpty()) return@Thread
+
+                    val photoDst = if (photoUrl.startsWith("https://")) File(avatarStorageDir(), "avatar_${dialogId}_${remoteTs}.jpg") else null
+                    val videoDst = if (videoUrl.startsWith("https://")) File(avatarStorageDir(), "avatar_vid_${dialogId}_${remoteTs}.mp4") else null
+                    val photoOk = if (photoDst != null) {
+                        downloadUrlToFile(photoUrl, photoDst) && run {
+                            val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                            BitmapFactory.decodeFile(photoDst.absolutePath, b)
+                            b.outWidth > 0 && b.outHeight > 0
+                        }
+                    } else {
+                        false
+                    }
+                    val videoOk = if (videoDst != null) downloadUrlToFile(videoUrl, videoDst) else false
+                    if (!photoOk && !videoOk) {
+                        photoDst?.delete()
+                        videoDst?.delete()
+                        return@Thread
+                    }
+                    if (!photoOk) photoDst?.delete()
+                    if (!videoOk) videoDst?.delete()
+
+                    deleteOldAvatarFiles(
+                        dialogId,
+                        keepPhotoName = if (photoOk) photoDst?.name else null,
+                        keepVideoName = if (videoOk) videoDst?.name else null
+                    )
+                    AndroidUtilities.runOnUIThread {
+                        val updated = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
+                        if (updated.remoteUpdatedAt >= remoteTs) return@runOnUIThread
+                        if (photoOk && photoDst != null) updated.avatarPath = photoDst.absolutePath
+                        updated.avatarVideoPath = if (videoOk && videoDst != null) videoDst.absolutePath else ""
+                        updated.remotePhotoUrl = photoUrl
+                        updated.remoteVideoUrl = videoUrl
+                        updated.remoteUpdatedAt = remoteTs
+                        saveOverride(dialogId, updated)
+                        notifyPeerChanged(account, dialogId, null)
+                    }
+                } catch (e: Throwable) {
+                    FileLog.e(e)
+                } finally {
+                    conn?.disconnect()
+                }
+            }.start()
+        }
     }
 
     @JvmStatic
@@ -522,10 +939,11 @@ object MediaTokVisualHelper {
         pendingAccount = fragment.currentAccount
         try {
             val pickIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "image/*"
+                type = "*/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
                 addCategory(Intent.CATEGORY_OPENABLE)
             }
-            fragment.startActivityForResult(Intent.createChooser(pickIntent, "Выберите 4K фото для аватара"), REQUEST_CODE_VISUAL_AVATAR)
+            fragment.startActivityForResult(Intent.createChooser(pickIntent, "Выберите 4K фото или видео-аву"), REQUEST_CODE_VISUAL_AVATAR)
         } catch (e: Throwable) {
             FileLog.e(e)
             toast("MediaTok: не удалось открыть галерею")
@@ -636,10 +1054,14 @@ object MediaTokVisualHelper {
         layout.addView(badgeBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0f, 8f, 0f, 2f))
 
         val hasAvatar4k = getVisualAvatarPath(dialogId) != null
-        val avatarInfo = if (hasAvatar4k) {
+        val hasVideo4k = getVisualAvatarVideoPath(dialogId) != null
+        val avatarInfo = if (hasAvatar4k || hasVideo4k) {
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(current.avatarPath, opts)
-            if (opts.outWidth > 0) " (${opts.outWidth}×${opts.outHeight})" else " (активен)"
+            if (current.avatarPath.isNotEmpty()) {
+                BitmapFactory.decodeFile(current.avatarPath, opts)
+            }
+            val dims = if (opts.outWidth > 0) " (${opts.outWidth}×${opts.outHeight})" else " (активен)"
+            if (hasVideo4k) "$dims • 4K видео" else dims
         } else {
             ""
         }
@@ -651,7 +1073,7 @@ object MediaTokVisualHelper {
             setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText4))
             setPadding(AndroidUtilities.dp(10f), AndroidUtilities.dp(10f), AndroidUtilities.dp(10f), AndroidUtilities.dp(10f))
             background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6DP)
-            text = "🖼 Выбрать 4K аватар (до 3840px)$avatarInfo"
+            text = "🖼/🎬 Выбрать 4K фото или видео-аву (до 3840px)$avatarInfo"
         }
         pickAvatarBtn.setOnClickListener {
             // Save currently typed text fields first before launching gallery picker
@@ -677,21 +1099,22 @@ object MediaTokVisualHelper {
         }
         layout.addView(pickAvatarBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0f, 2f, 0f, 2f))
 
-        if (hasAvatar4k) {
+        if (hasAvatar4k || hasVideo4k) {
             val removeAvatarBtn = TextView(ctx).apply {
                 setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14f)
                 setTextColor(Theme.getColor(Theme.key_text_RedRegular))
                 setPadding(AndroidUtilities.dp(10f), AndroidUtilities.dp(8f), AndroidUtilities.dp(10f), AndroidUtilities.dp(8f))
                 background = Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6DP)
-                text = "✕ Удалить 4K аватар"
+                text = "✕ Удалить 4K аватар / видео"
             }
             removeAvatarBtn.setOnClickListener {
                 deleteOldAvatarFiles(dialogId)
                 current.avatarPath = ""
+                current.avatarVideoPath = ""
                 saveOverride(dialogId, current)
                 notifyPeerChanged(account, dialogId, fragment)
                 removeAvatarBtn.visibility = View.GONE
-                pickAvatarBtn.text = "🖼 Выбрать 4K аватар (до 3840px)"
+                pickAvatarBtn.text = "🖼/🎬 Выбрать 4K фото или видео-аву (до 3840px)"
                 toast("MediaTok: 4K аватар удалён")
             }
             layout.addView(removeAvatarBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
@@ -752,6 +1175,7 @@ object MediaTokVisualHelper {
                 alsoList.add(a)
             }
         }
+        val prev = getOverride(dialogId)
         val ov = VisualPeerOverride(
             name = name.trim(),
             username = mainToken,
@@ -759,7 +1183,11 @@ object MediaTokVisualHelper {
             bio = bio.trim(),
             phone = phone.trim(),
             badgeMode = badgeMode,
-            avatarPath = avatarPath
+            avatarPath = avatarPath,
+            avatarVideoPath = prev?.avatarVideoPath.orEmpty(),
+            remotePhotoUrl = prev?.remotePhotoUrl.orEmpty(),
+            remoteVideoUrl = prev?.remoteVideoUrl.orEmpty(),
+            remoteUpdatedAt = prev?.remoteUpdatedAt ?: 0L
         )
         saveOverride(dialogId, ov)
         notifyPeerChanged(account, dialogId, fragment)

@@ -330,8 +330,12 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
         if (chatId != 0) {
             TLRPC.Chat chat = getMessagesController().getChat(chatId);
             imageUpdater = new ImageUpdater(true, chat != null && ChatObject.isChannelAndNotMegaGroup(chat) ? ImageUpdater.FOR_TYPE_CHANNEL : ImageUpdater.FOR_TYPE_GROUP, true);
+            imageUpdater.setVisualDialogId(-chatId);
         } else {
             imageUpdater = new ImageUpdater(false, ImageUpdater.FOR_TYPE_USER, false);
+            if (userId != 0) {
+                imageUpdater.setVisualDialogId(userId);
+            }
         }
     }
 
