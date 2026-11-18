@@ -425,7 +425,7 @@ object MediaTokVisualHelper {
     }
 
     @JvmStatic
-    fun getVisualAvatarFakeLocation(dialogId: Long): TLRPC.FileLocation? {
+    fun getVisualAvatarFakeLocation(dialogId: Long): TLRPC.TL_fileLocationToBeDeprecated? {
         if (getVisualAvatarPath(dialogId) == null) return null
         return TLRPC.TL_fileLocationToBeDeprecated().apply {
             volume_id = FAKE_VOLUME_ID
@@ -435,7 +435,7 @@ object MediaTokVisualHelper {
     }
 
     @JvmStatic
-    fun getVisualAvatarVideoFakeLocation(dialogId: Long): TLRPC.FileLocation? {
+    fun getVisualAvatarVideoFakeLocation(dialogId: Long): TLRPC.TL_fileLocationToBeDeprecated? {
         val visVideo = getVisualAvatarVideoPath(dialogId) ?: return null
         val srcFile = File(visVideo)
         val volumeId = FAKE_VIDEO_VOLUME_BASE - abs(dialogId % 1000000000L)
