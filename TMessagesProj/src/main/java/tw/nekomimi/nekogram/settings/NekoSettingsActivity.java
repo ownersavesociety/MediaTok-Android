@@ -61,6 +61,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     private int categoriesRow;
     private int mediatokRow;
     private int mediatokFontsRow;
+    private int mediatokLangsRow;
     private int generalRow;
     private int accountRow;
     private int chatRow;
@@ -101,6 +102,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
             xyz.nextalone.nagram.helper.MediaTokHelper.openSettingsDialog(getParentActivity());
         } else if (position == mediatokFontsRow) {
             xyz.nextalone.nagram.helper.MediaTokFontHelper.openFontStudioDialog(getParentActivity(), 0);
+        } else if (position == mediatokLangsRow) {
+            xyz.nextalone.nagram.helper.MediaTokLangHelper.openLanguageStudioDialog(getParentActivity(), 0);
         } else if (position == generalRow) {
             presentFragment(new NekoGeneralSettingsActivity());
         } else if (position == accountRow) {
@@ -167,6 +170,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
         categoriesRow = addRow("categories");
         mediatokRow = addRow("mediatok");
         mediatokFontsRow = addRow("mediatok_fonts");
+        mediatokLangsRow = addRow("mediatok_langs");
         generalRow = addRow("general");
         accountRow = addRow("account");
         chatRow = addRow("chat");
@@ -243,7 +247,9 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                     if (position == mediatokRow) {
                         textCell.setTextAndIcon("MediaTok (AI / Команды / Утилиты)", R.drawable.msg_fave, divider);
                     } else if (position == mediatokFontsRow) {
-                        textCell.setTextAndIcon("Шрифты MediaTok (48+ и текст чата)", R.drawable.msg_theme, divider);
+                        textCell.setTextAndIcon("Шрифты MediaTok (80+, редактор .ttf и чат)", R.drawable.msg_theme, divider);
+                    } else if (position == mediatokLangsRow) {
+                        textCell.setTextAndIcon("Языки MediaTok (66 паков и фулл-редактор)", R.drawable.msg_translate, divider);
                     } else if (position == generalRow) {
                         textCell.setTextAndIcon(LocaleController.getString(R.string.General), R.drawable.msg_media, divider);
                     } else if (position == accountRow) {

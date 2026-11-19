@@ -249,8 +249,14 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 }
                 true
             }
-            ".font", ".fonts", ".f" -> {
+            ".font", ".fonts", ".f", ".color", ".col" -> {
                 MediaTokFontHelper.handleCommand(account, dialogId, cmdLower, arg, params)
+            }
+            ".lang", ".langs" -> {
+                AndroidUtilities.runOnUIThread {
+                    MediaTokLangHelper.openLanguageStudioDialog(getActivity(), if (arg.trim().equals("edit", true)) 1 else 0)
+                }
+                true
             }
             else -> MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
         }
@@ -773,8 +779,10 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 append("• .visname <имя|off>, .visuser <@u1 @u2|off>, .visalso <@u2|off>\n")
                 append("• .visbio <текст|off>, .visphone <тел|off>, .visbadge <verified|premium|scam|fake|hide|off>\n")
                 append("• .visclear — сбросить визуал чата\n")
-                append("• .font [стиль|off|list] — студия шрифтов (48+ клиента и 31 стиль чата)\n")
+                append("• .font [стиль|off|list] — студия шрифтов (80+ клиента, редактор .ttf и 32 стиля чата)\n")
                 append("• .f <стиль> <текст> — отправить стилизованное сообщение в чат\n")
+                append("• .color <neon|gold|fire|#HEX> <текст> — цветной прозрачный текст-стикер твоим шрифтом\n")
+                append("• .lang [edit] — каталог 66 языков ТГ + фулл-редактор ВСЕХ фраз клиента\n")
                 append("• .mt / .help — эта шпаргалка")
             }
             AlertDialog.Builder(activity)
@@ -815,7 +823,7 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
         layout.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
 
         val fontsBtn = TextView(ctx).apply {
-            text = "Открыть Студию Шрифтов (48+ клиента • 31 стиль чата)\nТекущий: ${MediaTokFontHelper.getSelectedUiFontDisplayName()} / Чат: ${MediaTokFontHelper.getActiveChatStyleDisplayName()}"
+            text = "Открыть Студию Шрифтов (80+ клиента • редактор .ttf • 32 стиля чата)\nТекущий: ${MediaTokFontHelper.getSelectedUiFontDisplayName()} / Чат: ${MediaTokFontHelper.getActiveChatStyleDisplayName()}"
             setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.5f)
             setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText))
             setPadding(0, AndroidUtilities.dp(12f), 0, AndroidUtilities.dp(4f))
@@ -825,6 +833,18 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             }
         }
         layout.addView(fontsBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
+
+        val langsBtn = TextView(ctx).apply {
+            text = "Открыть Студию Языков (66 паков ТГ + фулл-редактор всех фраз)\nИзменено фраз: ${MediaTokLangHelper.getOverrideCount()}"
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.5f)
+            setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText))
+            setPadding(0, AndroidUtilities.dp(10f), 0, AndroidUtilities.dp(4f))
+            isClickable = true
+            setOnClickListener {
+                MediaTokLangHelper.openLanguageStudioDialog(ctx, 0)
+            }
+        }
+        layout.addView(langsBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
 
         AlertDialog.Builder(ctx)
             .setTitle("MediaTok AI и Утилиты")

@@ -243,7 +243,7 @@ private final AbstractConfigCell defaultHlsVideoQualityRow = cellGroup.appendCel
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder) {
             org.telegram.ui.Cells.TextSettingsCell cell = (org.telegram.ui.Cells.TextSettingsCell) holder.itemView;
-            cell.setTextAndValue("Шрифты MediaTok (48+ и чат)", xyz.nextalone.nagram.helper.MediaTokFontHelper.getSelectedUiFontDisplayName(), cellGroup.needSetDivider(this));
+            cell.setTextAndValue("Шрифты MediaTok (80+, .ttf и чат)", xyz.nextalone.nagram.helper.MediaTokFontHelper.getSelectedUiFontDisplayName(), cellGroup.needSetDivider(this));
             cell.setEnabled(true);
         }
     });

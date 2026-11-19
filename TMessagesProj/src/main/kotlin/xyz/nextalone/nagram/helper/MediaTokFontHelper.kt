@@ -4,13 +4,21 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
 import android.text.Editable
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
 import android.text.TextUtils
 import android.text.TextWatcher
 import android.util.TypedValue
@@ -21,6 +29,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import org.telegram.messenger.AccountInstance
 import org.telegram.messenger.AndroidUtilities
 import org.telegram.messenger.ApplicationLoader
 import org.telegram.messenger.FileLog
@@ -71,7 +80,7 @@ object MediaTokFontHelper {
     )
 
     val BUNDLED_FONTS: List<BundledFont> = listOf(
-        // Современные (16)
+        // Современные (26)
         BundledFont("inter", "Inter", "Современные", "fonts/mediatok/mt_inter.ttf"),
         BundledFont("montserrat", "Montserrat", "Современные", "fonts/mediatok/mt_montserrat.ttf"),
         BundledFont("manrope", "Manrope", "Современные", "fonts/mediatok/mt_manrope.ttf"),
@@ -88,8 +97,18 @@ object MediaTokFontHelper {
         BundledFont("fira_sans", "Fira Sans", "Современные", "fonts/mediatok/mt_fira_sans.ttf"),
         BundledFont("exo_2", "Exo 2", "Современные", "fonts/mediatok/mt_exo_2.ttf"),
         BundledFont("oswald", "Oswald", "Современные", "fonts/mediatok/mt_oswald.ttf"),
+        BundledFont("sofia_sans", "Sofia Sans", "Современные", "fonts/mediatok/mt_sofia_sans.ttf"),
+        BundledFont("commissioner", "Commissioner", "Современные", "fonts/mediatok/mt_commissioner.ttf"),
+        BundledFont("cuprum", "Cuprum", "Современные", "fonts/mediatok/mt_cuprum.ttf"),
+        BundledFont("yanone_kaffeesatz", "Yanone Kaffeesatz", "Современные", "fonts/mediatok/mt_yanone_kaffeesatz.ttf"),
+        BundledFont("didact_gothic", "Didact Gothic", "Современные", "fonts/mediatok/mt_didact_gothic.ttf"),
+        BundledFont("tenor_sans", "Tenor Sans", "Современные", "fonts/mediatok/mt_tenor_sans.ttf"),
+        BundledFont("el_messiri", "El Messiri", "Современные", "fonts/mediatok/mt_el_messiri.ttf"),
+        BundledFont("alumni_sans", "Alumni Sans", "Современные", "fonts/mediatok/mt_alumni_sans.ttf"),
+        BundledFont("bellota_text", "Bellota Text", "Современные", "fonts/mediatok/mt_bellota_text.ttf"),
+        BundledFont("wix_madefor_display", "Wix Madefor Display", "Современные", "fonts/mediatok/mt_wix_madefor_display.ttf"),
 
-        // Кибер / Пиксель / Арт (13)
+        // Кибер / Пиксель / Арт (29)
         BundledFont("unbounded", "Unbounded", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_unbounded.ttf"),
         BundledFont("russo_one", "Russo One", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_russo_one.ttf"),
         BundledFont("tektur", "Tektur", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_tektur.ttf"),
@@ -103,16 +122,36 @@ object MediaTokFontHelper {
         BundledFont("kelly_slab", "Kelly Slab", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_kelly_slab.ttf"),
         BundledFont("underdog", "Underdog", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_underdog.ttf"),
         BundledFont("poiret_one", "Poiret One", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_poiret_one.ttf"),
+        BundledFont("ruslan_display", "Ruslan Display", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_ruslan_display.ttf"),
+        BundledFont("seymour_one", "Seymour One", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_seymour_one.ttf"),
+        BundledFont("stalinist_one", "Stalinist One", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_stalinist_one.ttf"),
+        BundledFont("kablammo", "Kablammo", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_kablammo.ttf"),
+        BundledFont("rubik_wet_paint", "Rubik Wet Paint", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_wet_paint.ttf"),
+        BundledFont("rubik_spray_paint", "Rubik Spray Paint", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_spray_paint.ttf"),
+        BundledFont("rubik_vinyl", "Rubik Vinyl", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_vinyl.ttf"),
+        BundledFont("rubik_iso", "Rubik Iso", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_iso.ttf"),
+        BundledFont("rubik_broken_fax", "Rubik Broken Fax", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_broken_fax.ttf"),
+        BundledFont("rubik_burned", "Rubik Burned", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_burned.ttf"),
+        BundledFont("rubik_distressed", "Rubik Distressed", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_distressed.ttf"),
+        BundledFont("rubik_marker_hatch", "Rubik Marker Hatch", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_marker_hatch.ttf"),
+        BundledFont("rubik_maze", "Rubik Maze", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_maze.ttf"),
+        BundledFont("rubik_moonrocks", "Rubik Moonrocks", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_moonrocks.ttf"),
+        BundledFont("rubik_puddles", "Rubik Puddles", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_puddles.ttf"),
+        BundledFont("rubik_scribble", "Rubik Scribble", "Кибер / Пиксель / Арт", "fonts/mediatok/mt_rubik_scribble.ttf"),
 
-        // С засечками (6)
+        // С засечками (10)
         BundledFont("playfair_display", "Playfair Display", "С засечками (Serif)", "fonts/mediatok/mt_playfair_display.ttf"),
         BundledFont("cormorant_garamond", "Cormorant Garamond", "С засечками (Serif)", "fonts/mediatok/mt_cormorant_garamond.ttf"),
         BundledFont("lora", "Lora", "С засечками (Serif)", "fonts/mediatok/mt_lora.ttf"),
         BundledFont("yeseva_one", "Yeseva One", "С засечками (Serif)", "fonts/mediatok/mt_yeseva_one.ttf"),
         BundledFont("philosopher", "Philosopher", "С засечками (Serif)", "fonts/mediatok/mt_philosopher.ttf"),
         BundledFont("alice", "Alice", "С засечками (Serif)", "fonts/mediatok/mt_alice.ttf"),
+        BundledFont("merriweather", "Merriweather", "С засечками (Serif)", "fonts/mediatok/mt_merriweather.ttf"),
+        BundledFont("vollkorn", "Vollkorn", "С засечками (Serif)", "fonts/mediatok/mt_vollkorn.ttf"),
+        BundledFont("forum", "Forum", "С засечками (Serif)", "fonts/mediatok/mt_forum.ttf"),
+        BundledFont("prata", "Prata", "С засечками (Serif)", "fonts/mediatok/mt_prata.ttf"),
 
-        // Рукописные и Фан (9)
+        // Рукописные и Фан (11)
         BundledFont("caveat", "Caveat", "Рукописные и Фан", "fonts/mediatok/mt_caveat.ttf"),
         BundledFont("pacifico", "Pacifico", "Рукописные и Фан", "fonts/mediatok/mt_pacifico.ttf"),
         BundledFont("marck_script", "Marck Script", "Рукописные и Фан", "fonts/mediatok/mt_marck_script.ttf"),
@@ -122,6 +161,8 @@ object MediaTokFontHelper {
         BundledFont("neucha", "Neucha", "Рукописные и Фан", "fonts/mediatok/mt_neucha.ttf"),
         BundledFont("balsamiq_sans", "Balsamiq Sans", "Рукописные и Фан", "fonts/mediatok/mt_balsamiq_sans.ttf"),
         BundledFont("shantell_sans", "Shantell Sans", "Рукописные и Фан", "fonts/mediatok/mt_shantell_sans.ttf"),
+        BundledFont("pangolin", "Pangolin", "Рукописные и Фан", "fonts/mediatok/mt_pangolin.ttf"),
+        BundledFont("comforter_brush", "Comforter Brush", "Рукописные и Фан", "fonts/mediatok/mt_comforter_brush.ttf"),
 
         // Моноширинные (4)
         BundledFont("jetbrains_mono", "JetBrains Mono", "Моноширинные", "fonts/mediatok/mt_jetbrains_mono.ttf", isMono = true),
@@ -653,7 +694,188 @@ object MediaTokFontHelper {
                 SendMessagesHelper.getInstance(account).sendMessage(p)
                 return true
             }
+            ".color", ".col" -> {
+                val parts = arg.trim().split(Regex("\\s+"), limit = 2)
+                val colorSpec = parts.getOrNull(0)?.trim().orEmpty()
+                val body = parts.getOrNull(1)?.trim().orEmpty()
+                if (colorSpec.isEmpty() || body.isEmpty()) {
+                    toast("Формат: .color <neon|gold|fire|cyber|ice|toxic|sunset|rainbow|red|pink|blue|green|#HEX,#HEX> <текст>")
+                    return true
+                }
+                sendColoredTextSticker(account, dialogId, colorSpec, body, params)
+                return true
+            }
             else -> return false
+        }
+    }
+
+    private fun parseColorGradient(specRaw: String): IntArray {
+        val spec = specRaw.trim().lowercase(Locale.ROOT)
+        return when (spec) {
+            "neon", "неон" -> intArrayOf(0xFFFF00CC.toInt(), 0xFF3333FF.toInt(), 0xFF00F5FF.toInt())
+            "gold", "золото" -> intArrayOf(0xFFFFF3B0.toInt(), 0xFFFFB703.toInt(), 0xFFFB8500.toInt())
+            "fire", "огонь" -> intArrayOf(0xFFFFEA00.toInt(), 0xFFFF6D00.toInt(), 0xFFD50000.toInt())
+            "cyber", "кибер" -> intArrayOf(0xFF00F5D4.toInt(), 0xFF00BBF9.toInt(), 0xFF9B5DE5.toInt())
+            "ice", "лёд", "лед" -> intArrayOf(0xFFE0FBFC.toInt(), 0xFF48CAE4.toInt(), 0xFF0077B6.toInt())
+            "toxic", "токсик" -> intArrayOf(0xFFCCFF00.toInt(), 0xFF00E676.toInt(), 0xFF00BFA5.toInt())
+            "sunset", "закат" -> intArrayOf(0xFFFF5F6D.toInt(), 0xFFFFC371.toInt())
+            "rainbow", "радуга" -> intArrayOf(0xFFFF3B30.toInt(), 0xFFFF9500.toInt(), 0xFFFFCC00.toInt(), 0xFF34C759.toInt(), 0xFF007AFF.toInt(), 0xFFAF52DE.toInt())
+            "red", "красный" -> intArrayOf(0xFFFF4D6D.toInt(), 0xFFC9184A.toInt())
+            "pink", "розовый" -> intArrayOf(0xFFFF99C8.toInt(), 0xFFFF006E.toInt())
+            "blue", "синий" -> intArrayOf(0xFF4CC9F0.toInt(), 0xFF4361EE.toInt())
+            "green", "зелёный", "зеленый" -> intArrayOf(0xFF80ED99.toInt(), 0xFF38B000.toInt())
+            "purple", "фиолетовый" -> intArrayOf(0xFFC77DFF.toInt(), 0xFF7B2CBF.toInt())
+            "white", "белый" -> intArrayOf(0xFFFFFFFF.toInt(), 0xFFE2E8F0.toInt())
+            "black", "чёрный", "черный" -> intArrayOf(0xFF2B2D42.toInt(), 0xFF0B090A.toInt())
+            else -> {
+                val hexes = spec.split(",").mapNotNull {
+                    try {
+                        val s = it.trim()
+                        Color.parseColor(if (s.startsWith("#")) s else "#$s")
+                    } catch (_: Throwable) {
+                        null
+                    }
+                }
+                when {
+                    hexes.size >= 2 -> hexes.toIntArray()
+                    hexes.size == 1 -> intArrayOf(hexes[0], hexes[0])
+                    else -> intArrayOf(0xFFFF00CC.toInt(), 0xFF00F5FF.toInt())
+                }
+            }
+        }
+    }
+
+    private fun sendColoredTextSticker(
+        account: Int,
+        dialogId: Long,
+        colorSpec: String,
+        body: String,
+        params: SendMessagesHelper.SendMessageParams
+    ) {
+        val ctx = ApplicationLoader.applicationContext ?: return
+        try {
+            val colors = parseColorGradient(colorSpec)
+            val tf = activeBold ?: activeRegular ?: loadTypefaceById("bundled:unbounded") ?: Typeface.DEFAULT_BOLD
+            val w = 512
+            val pad = 28
+            val maxTextW = w - pad * 2
+
+            var textSizePx = when {
+                body.length <= 10 -> 86f
+                body.length <= 24 -> 66f
+                body.length <= 50 -> 50f
+                else -> 38f
+            }
+
+            fun makeLayout(sz: Float): StaticLayout {
+                val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                    textSize = sz
+                    typeface = tf
+                }
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    StaticLayout.Builder.obtain(body, 0, body.length, tp, maxTextW)
+                        .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                        .setIncludePad(true)
+                        .build()
+                } else {
+                    @Suppress("DEPRECATION")
+                    StaticLayout(body, tp, maxTextW, Layout.Alignment.ALIGN_CENTER, 1.0f, 0f, true)
+                }
+            }
+
+            var layout = makeLayout(textSizePx)
+            while (layout.height > 440 && textSizePx > 22f) {
+                textSizePx -= 6f
+                layout = makeLayout(textSizePx)
+            }
+
+            val h = (layout.height + pad * 2).coerceIn(120, 512)
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            val topY = (h - layout.height) / 2f
+
+            // Glow + dark stroke pass
+            val strokePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = textSizePx
+                typeface = tf
+                style = Paint.Style.STROKE
+                strokeWidth = (textSizePx * 0.14f).coerceIn(5f, 12f)
+                strokeJoin = Paint.Join.ROUND
+                color = 0xD8000000.toInt()
+                setShadowLayer(12f, 0f, 3f, colors[0])
+            }
+            val strokeLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                StaticLayout.Builder.obtain(body, 0, body.length, strokePaint, maxTextW)
+                    .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                    .setIncludePad(true)
+                    .build()
+            } else {
+                @Suppress("DEPRECATION")
+                StaticLayout(body, strokePaint, maxTextW, Layout.Alignment.ALIGN_CENTER, 1.0f, 0f, true)
+            }
+            canvas.save()
+            canvas.translate(pad.toFloat(), topY)
+            strokeLayout.draw(canvas)
+
+            // Gradient fill pass
+            val fillPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = textSizePx
+                typeface = tf
+                style = Paint.Style.FILL
+                shader = LinearGradient(
+                    0f, 0f, maxTextW.toFloat(), layout.height.toFloat(),
+                    colors, null, Shader.TileMode.CLAMP
+                )
+            }
+            val fillLayout = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                StaticLayout.Builder.obtain(body, 0, body.length, fillPaint, maxTextW)
+                    .setAlignment(Layout.Alignment.ALIGN_CENTER)
+                    .setIncludePad(true)
+                    .build()
+            } else {
+                @Suppress("DEPRECATION")
+                StaticLayout(body, fillPaint, maxTextW, Layout.Alignment.ALIGN_CENTER, 1.0f, 0f, true)
+            }
+            fillLayout.draw(canvas)
+            canvas.restore()
+
+            val outDir = File(ctx.cacheDir, "mediatok_stickers")
+            if (!outDir.exists()) outDir.mkdirs()
+            val outFile = File(outDir, "mt_col_${System.currentTimeMillis()}.webp")
+            FileOutputStream(outFile).use { fos ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    bmp.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, fos)
+                } else {
+                    @Suppress("DEPRECATION")
+                    bmp.compress(Bitmap.CompressFormat.WEBP, 96, fos)
+                }
+            }
+            bmp.recycle()
+
+            AndroidUtilities.runOnUIThread {
+                SendMessagesHelper.prepareSendingDocument(
+                    AccountInstance.getInstance(account),
+                    outFile.absolutePath,
+                    outFile.absolutePath,
+                    null,
+                    null,
+                    "image/webp",
+                    dialogId,
+                    params.replyToMsg,
+                    params.replyToTopMsg,
+                    null,
+                    null,
+                    null,
+                    true,
+                    0,
+                    null,
+                    null,
+                    false
+                )
+            }
+        } catch (e: Throwable) {
+            FileLog.e(e)
+            toast("Ошибка создания цветного стикера: ${e.message}")
         }
     }
 
@@ -1087,9 +1309,11 @@ object MediaTokFontHelper {
             orientation = LinearLayout.HORIZONTAL
         }
         val tabUiBtn = createPillButton(ctx, "Клиент (${BUNDLED_FONTS.size + listCustomFonts().size})")
-        val tabChatBtn = createPillButton(ctx, "Текст чата (${CHAT_TEXT_STYLES.size})")
-        tabsRow.addView(tabUiBtn, LayoutHelper.createLinear(0, 38, 1f, 0, 0, 4, 0))
-        tabsRow.addView(tabChatBtn, LayoutHelper.createLinear(0, 38, 1f, 4, 0, 0, 0))
+        val tabChatBtn = createPillButton(ctx, "Чат (${CHAT_TEXT_STYLES.size})")
+        val tabCreateBtn = createPillButton(ctx, "Создать .ttf")
+        tabsRow.addView(tabUiBtn, LayoutHelper.createLinear(0, 36, 1.1f, 0, 0, 3, 0))
+        tabsRow.addView(tabChatBtn, LayoutHelper.createLinear(0, 36, 0.9f, 3, 0, 3, 0))
+        tabsRow.addView(tabCreateBtn, LayoutHelper.createLinear(0, 36, 1.0f, 3, 0, 0, 0))
         root.addView(tabsRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0f, 0f, 0f, 8f))
 
         // Search / Live sample input
@@ -1129,6 +1353,7 @@ object MediaTokFontHelper {
 
             applyPillStyle(tabUiBtn, if (currentTab == 0) accent else mutedBg, if (currentTab == 0) whiteText else normalText)
             applyPillStyle(tabChatBtn, if (currentTab == 1) accent else mutedBg, if (currentTab == 1) whiteText else normalText)
+            applyPillStyle(tabCreateBtn, mutedBg, normalText)
 
             if (currentTab == 0) {
                 leftAction.text = "+ Загрузить .ttf / .otf"
@@ -1274,6 +1499,10 @@ object MediaTokFontHelper {
                 styleTabs()
                 rebuildList()
             }
+        }
+        tabCreateBtn.setOnClickListener {
+            dialogRef?.dismiss()
+            MediaTokTtfCreator.openFontCreatorDialog(ctx)
         }
         leftAction.setOnClickListener {
             if (currentTab == 0) {

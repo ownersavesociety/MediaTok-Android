@@ -4546,6 +4546,10 @@ public class LocaleController {
 
     @Nullable
     private String getStringV2(String key, @StringRes int stringRes, String fallback) {
+        final String mtLangOverride = xyz.nextalone.nagram.helper.MediaTokLangHelper.getOverride(key, stringRes);
+        if (mtLangOverride != null) {
+            return mtLangOverride;
+        }
         final Context context = ApplicationLoader.applicationContext;
         String value;
 
