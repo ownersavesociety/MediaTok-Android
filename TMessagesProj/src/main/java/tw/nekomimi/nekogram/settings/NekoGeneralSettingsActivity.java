@@ -237,6 +237,16 @@ private final AbstractConfigCell defaultHlsVideoQualityRow = cellGroup.appendCel
 
     private final AbstractConfigCell header5 = cellGroup.appendCell(new ConfigCellHeader(LocaleController.getString("Appearance")));
     private final AbstractConfigCell typefaceRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.typeface));
+    private final AbstractConfigCell mediatokFontsRow = cellGroup.appendCell(new tw.nekomimi.nekogram.config.cell.ConfigCellText("MediaTokFonts", () -> {
+        xyz.nextalone.nagram.helper.MediaTokFontHelper.openFontStudioDialog(getParentActivity(), 0);
+    }) {
+        @Override
+        public void onBindViewHolder(RecyclerView.ViewHolder holder) {
+            org.telegram.ui.Cells.TextSettingsCell cell = (org.telegram.ui.Cells.TextSettingsCell) holder.itemView;
+            cell.setTextAndValue("Шрифты MediaTok (48+ и чат)", xyz.nextalone.nagram.helper.MediaTokFontHelper.getSelectedUiFontDisplayName(), cellGroup.needSetDivider(this));
+            cell.setEnabled(true);
+        }
+    });
     private final AbstractConfigCell transparentStatusBarRow = cellGroup.appendCell(new ConfigCellTextCheck(NekoConfig.transparentStatusBar));
     private final AbstractConfigCell iconDecorationRow = cellGroup.appendCell(new ConfigCellSelectBox(null, NaConfig.INSTANCE.getIconDecoration(), new String[]{
             LocaleController.getString("DependsOnDate", R.string.DependsOnDate),

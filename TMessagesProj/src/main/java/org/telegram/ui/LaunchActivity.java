@@ -6934,6 +6934,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         }
         super.onActivityResult(requestCode, resultCode, data);
         if (GramWalletStorageAuth.onActivityResult(this, requestCode, resultCode)) return;
+        if (xyz.nextalone.nagram.helper.MediaTokFontHelper.handleActivityResult(this, requestCode, resultCode, data)) return;
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
                 VoIPService service = VoIPService.getSharedInstance();

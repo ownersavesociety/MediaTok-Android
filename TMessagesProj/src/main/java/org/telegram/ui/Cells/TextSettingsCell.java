@@ -79,6 +79,10 @@ public class TextSettingsCell extends FrameLayout {
         this.padding = padding;
 
         textView = new TextView(context);
+        android.graphics.Typeface mtTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+        if (mtTf != null) {
+            textView.setTypeface(mtTf);
+        }
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         textView.setLines(1);
         textView.setMaxLines(1);

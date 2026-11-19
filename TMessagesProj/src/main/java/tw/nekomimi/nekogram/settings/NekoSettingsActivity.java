@@ -60,6 +60,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
 
     private int categoriesRow;
     private int mediatokRow;
+    private int mediatokFontsRow;
     private int generalRow;
     private int accountRow;
     private int chatRow;
@@ -98,6 +99,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
     protected void onItemClick(View view, int position, float x, float y) {
         if (position == mediatokRow) {
             xyz.nextalone.nagram.helper.MediaTokHelper.openSettingsDialog(getParentActivity());
+        } else if (position == mediatokFontsRow) {
+            xyz.nextalone.nagram.helper.MediaTokFontHelper.openFontStudioDialog(getParentActivity(), 0);
         } else if (position == generalRow) {
             presentFragment(new NekoGeneralSettingsActivity());
         } else if (position == accountRow) {
@@ -163,6 +166,7 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
 
         categoriesRow = addRow("categories");
         mediatokRow = addRow("mediatok");
+        mediatokFontsRow = addRow("mediatok_fonts");
         generalRow = addRow("general");
         accountRow = addRow("account");
         chatRow = addRow("chat");
@@ -238,6 +242,8 @@ public class NekoSettingsActivity extends BaseNekoSettingsActivity {
                     TextCell textCell = (TextCell) holder.itemView;
                     if (position == mediatokRow) {
                         textCell.setTextAndIcon("MediaTok (AI / Команды / Утилиты)", R.drawable.msg_fave, divider);
+                    } else if (position == mediatokFontsRow) {
+                        textCell.setTextAndIcon("Шрифты MediaTok (48+ и текст чата)", R.drawable.msg_theme, divider);
                     } else if (position == generalRow) {
                         textCell.setTextAndIcon(LocaleController.getString(R.string.General), R.drawable.msg_media, divider);
                     } else if (position == accountRow) {

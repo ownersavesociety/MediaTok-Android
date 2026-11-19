@@ -249,6 +249,9 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 }
                 true
             }
+            ".font", ".fonts", ".f" -> {
+                MediaTokFontHelper.handleCommand(account, dialogId, cmdLower, arg, params)
+            }
             else -> MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
         }
     }
@@ -770,6 +773,8 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 append("• .visname <имя|off>, .visuser <@u1 @u2|off>, .visalso <@u2|off>\n")
                 append("• .visbio <текст|off>, .visphone <тел|off>, .visbadge <verified|premium|scam|fake|hide|off>\n")
                 append("• .visclear — сбросить визуал чата\n")
+                append("• .font [стиль|off|list] — студия шрифтов (48+ клиента и 31 стиль чата)\n")
+                append("• .f <стиль> <текст> — отправить стилизованное сообщение в чат\n")
                 append("• .mt / .help — эта шпаргалка")
             }
             AlertDialog.Builder(activity)
@@ -808,6 +813,18 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
         }
         layout.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
+
+        val fontsBtn = TextView(ctx).apply {
+            text = "Открыть Студию Шрифтов (48+ клиента • 31 стиль чата)\nТекущий: ${MediaTokFontHelper.getSelectedUiFontDisplayName()} / Чат: ${MediaTokFontHelper.getActiveChatStyleDisplayName()}"
+            setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13.5f)
+            setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText))
+            setPadding(0, AndroidUtilities.dp(12f), 0, AndroidUtilities.dp(4f))
+            isClickable = true
+            setOnClickListener {
+                MediaTokFontHelper.openFontStudioDialog(ctx, 0)
+            }
+        }
+        layout.addView(fontsBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
 
         AlertDialog.Builder(ctx)
             .setTitle("MediaTok AI и Утилиты")

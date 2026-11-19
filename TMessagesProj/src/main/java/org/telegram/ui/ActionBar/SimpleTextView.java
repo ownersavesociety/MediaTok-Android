@@ -145,6 +145,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
     public SimpleTextView(Context context) {
         super(context);
         textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        Typeface mtTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+        if (mtTf != null) {
+            textPaint.setTypeface(mtTf);
+        }
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
 
@@ -300,6 +304,13 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     public void setTypeface(Typeface typeface) {
+        if (typeface == null) {
+            Typeface mtTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+            if (mtTf != null) {
+                textPaint.setTypeface(mtTf);
+                return;
+            }
+        }
         textPaint.setTypeface(typeface);
     }
 

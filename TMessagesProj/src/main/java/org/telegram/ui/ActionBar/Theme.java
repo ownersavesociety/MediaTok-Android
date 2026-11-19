@@ -7995,6 +7995,18 @@ public class Theme {
             dialogs_offlinePaint = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
             dialogs_tagTextPaint = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
             dialogs_tagTextPaint.setTypeface(AndroidUtilities.bold());
+            Typeface mtRegDialogTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+            if (mtRegDialogTf != null) {
+                for (int a = 0; a < 2; a++) {
+                    dialogs_messagePaint[a].setTypeface(mtRegDialogTf);
+                    dialogs_messagePrintingPaint[a].setTypeface(mtRegDialogTf);
+                }
+                dialogs_timePaint.setTypeface(mtRegDialogTf);
+                dialogs_timePaintBold.setTypeface(AndroidUtilities.bold());
+                dialogs_timePaintBoldAccent.setTypeface(AndroidUtilities.bold());
+                dialogs_onlinePaint.setTypeface(mtRegDialogTf);
+                dialogs_offlinePaint.setTypeface(mtRegDialogTf);
+            }
 
             dialogs_tabletSeletedPaint = new Paint();
             dialogs_pinnedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -8212,6 +8224,23 @@ public class Theme {
             chat_msgTextCodePaint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 1), SharedConfig.fontSize - 2)));
             chat_msgTextCode2Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 3)));
             chat_msgTextCode3Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 5)));
+
+            Typeface mtRegChatTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+            Typeface mtBoldChatTf = AndroidUtilities.bold();
+            chat_msgTextPaint.setTypeface(mtRegChatTf);
+            chat_msgGameTextPaint.setTypeface(mtRegChatTf);
+            chat_replyTextPaint.setTypeface(mtRegChatTf);
+            chat_quoteTextPaint.setTypeface(mtRegChatTf);
+            chat_explanationTextPaint.setTypeface(mtRegChatTf);
+            chat_titleLabelTextPaint.setTypeface(mtRegChatTf);
+            chat_forwardNamePaint.setTypeface(mtRegChatTf);
+            chat_adminPaint.setTypeface(mtRegChatTf);
+            chat_timePaint.setTypeface(mtRegChatTf);
+            chat_ephemeralPaint.setTypeface(mtRegChatTf);
+            chat_msgBotButtonPaint.setTypeface(mtBoldChatTf);
+            chat_namePaint.setTypeface(mtBoldChatTf);
+            chat_replyNamePaint.setTypeface(mtBoldChatTf);
+            chat_topicTextPaint.setTypeface(mtBoldChatTf);
         }
     }
 

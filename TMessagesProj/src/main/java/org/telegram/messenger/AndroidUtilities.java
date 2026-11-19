@@ -269,6 +269,10 @@ public class AndroidUtilities {
     public static ThreadLocal<byte[]> bufferLocal = new ThreadLocal<>();
 
     public static Typeface bold() {
+        Typeface customBold = xyz.nextalone.nagram.helper.MediaTokFontHelper.getBoldTypeface();
+        if (customBold != null) {
+            return customBold;
+        }
         if (mediumTypeface == null) {
             if (SharedConfig.useSystemBoldFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 mediumTypeface = Typeface.create(null, 500, false);
@@ -277,6 +281,13 @@ public class AndroidUtilities {
             }
         }
         return mediumTypeface;
+    }
+
+    public static void clearTypefaceCache() {
+        synchronized (typefaceCache) {
+            typefaceCache.clear();
+            mediumTypeface = null;
+        }
     }
 
     private static final Hashtable<String, Typeface> typefaceCache = new Hashtable<>();
@@ -2382,6 +2393,10 @@ public class AndroidUtilities {
     }
 
     public static Typeface getTypeface(String assetPath) {
+        Typeface customTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getTypefaceForAsset(assetPath);
+        if (customTf != null) {
+            return customTf;
+        }
         synchronized (typefaceCache) {
             if (NekoConfig.typeface.Bool() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 if (assetPath.contains("medium") && assetPath.contains("italic")) {

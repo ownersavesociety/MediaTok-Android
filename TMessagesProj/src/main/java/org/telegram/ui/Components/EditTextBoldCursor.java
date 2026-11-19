@@ -280,6 +280,10 @@ public class EditTextBoldCursor extends EditTextEffects {
             setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         }
         init();
+        android.graphics.Typeface mtTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+        if (mtTf != null) {
+            setTypeface(mtTf);
+        }
     }
 
     public void useAnimatedTextDrawable() {

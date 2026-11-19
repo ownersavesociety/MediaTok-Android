@@ -355,6 +355,7 @@ public class ApplicationLoader extends Application {
         if (applicationContext == null) {
             applicationContext = getApplicationContext();
         }
+        xyz.nextalone.nagram.helper.MediaTokFontHelper.applyGlobalSystemTypeface();
 
         Utilities.stageQueue.postRunnable(() -> SignturesKt.checkMT(this));
 

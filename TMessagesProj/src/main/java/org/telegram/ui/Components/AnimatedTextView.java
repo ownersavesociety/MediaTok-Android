@@ -226,6 +226,10 @@ public class AnimatedTextView extends View {
             this.startFromEnd = startFromEnd;
             this.enforceByLetter = enforceByLetter;
             this.startEndDiff = startEndDiff;
+            android.graphics.Typeface mtTf = xyz.nextalone.nagram.helper.MediaTokFontHelper.getRegularTypeface();
+            if (mtTf != null) {
+                textPaint.setTypeface(mtTf);
+            }
         }
 
         public void setAllowCancel(boolean allowCancel) {
