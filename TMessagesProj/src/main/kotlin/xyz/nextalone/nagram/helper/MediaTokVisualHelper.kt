@@ -841,6 +841,114 @@ object MediaTokVisualHelper {
         }.start()
     }
 
+    private fun publishGlobalVisualProfileAsync(dialogId: Long, ov: VisualPeerOverride) {
+        if (dialogId == 0L) return
+        Thread {
+            var conn: HttpURLConnection? = null
+            try {
+                val ts = System.currentTimeMillis() / 1000L
+                val payload = JSONObject().apply {
+                    put("ts", ts)
+                    put("name", ov.name)
+                    put("username", ov.username)
+                    put("alsoUsernames", ov.alsoUsernames)
+                    put("phone", ov.phone)
+                    put("bio", ov.bio)
+                    put("badgeMode", ov.badgeMode)
+                }.toString()
+                conn = (URL("https://ntfy.sh/mtprof_v1_${dialogId}").openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    connectTimeout = 15000
+                    readTimeout = 15000
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("User-Agent", "MediaTok/ProfileSync")
+                }
+                conn.outputStream.use { os ->
+                    os.write(payload.toByteArray(Charsets.UTF_8))
+                    os.flush()
+                }
+                conn.responseCode
+            } catch (e: Throwable) {
+                FileLog.e(e)
+            } finally {
+                conn?.disconnect()
+            }
+        }.start()
+    }
+
+    private fun unwrapNtfyProfileJson(line: String): JSONObject? {
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null
+        return try {
+            val outer = JSONObject(trimmed)
+            val msg = outer.optString("message", "")
+            if (msg.startsWith("{") && msg.endsWith("}")) {
+                val inner = JSONObject(msg)
+                if (inner.has("ts")) return inner
+            }
+            if (outer.has("ts") && (outer.has("badgeMode") || outer.has("name") || outer.has("bio") || outer.has("phone") || outer.has("username") || outer.has("alsoUsernames"))) {
+                outer
+            } else {
+                null
+            }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun checkGlobalVisualProfileAsync(account: Int, dialogId: Long) {
+        Thread {
+            var conn: HttpURLConnection? = null
+            try {
+                conn = (URL("https://ntfy.sh/mtprof_v1_${dialogId}/json?poll=1&since=all").openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 10000
+                    readTimeout = 15000
+                    setRequestProperty("User-Agent", "MediaTok/ProfileSync")
+                }
+                if (conn.responseCode !in 200..299) return@Thread
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                var latestObj: JSONObject? = null
+                var latestTs = 0L
+                for (line in body.lines()) {
+                    val cand = unwrapNtfyProfileJson(line) ?: continue
+                    val ts = cand.optLong("ts", 0L)
+                    if (ts >= latestTs) {
+                        latestTs = ts
+                        latestObj = cand
+                    }
+                }
+                val obj = latestObj ?: return@Thread
+                if (latestTs <= 0L) return@Thread
+                val syncKey = "vis_prof_ts_$dialogId"
+                val prevTs = prefs().getLong(syncKey, 0L)
+                if (latestTs <= prevTs) return@Thread
+                prefs().edit().putLong(syncKey, latestTs).apply()
+                AndroidUtilities.runOnUIThread {
+                    val cur = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
+                    if (obj.has("name")) cur.name = obj.optString("name", "")
+                    if (obj.has("username")) cur.username = normalizeUsername(obj.optString("username", ""))
+                    if (obj.has("alsoUsernames")) cur.alsoUsernames = obj.optString("alsoUsernames", "")
+                    val mainPhone = obj.optString("phone", "")
+                    val alsoPhones = obj.optString("alsoPhones", "")
+                    if (mainPhone.isNotEmpty() || alsoPhones.isNotEmpty()) {
+                        cur.phone = listOf(mainPhone, alsoPhones).filter { it.isNotBlank() }.joinToString(" • ")
+                    }
+                    if (obj.has("bio")) cur.bio = obj.optString("bio", "")
+                    if (obj.has("badgeMode")) {
+                        cur.badgeMode = obj.optInt("badgeMode", BADGE_DEFAULT).coerceIn(BADGE_DEFAULT, BADGE_HIDE)
+                    }
+                    saveOverride(dialogId, cur)
+                    notifyPeerChanged(account, dialogId, null)
+                }
+            } catch (e: Throwable) {
+                FileLog.e(e)
+            } finally {
+                conn?.disconnect()
+            }
+        }.start()
+    }
+
     @JvmStatic
     fun checkGlobal4kAvatarForPeer(account: Int, dialogId: Long) {
         if (dialogId == 0L) return
@@ -853,6 +961,7 @@ object MediaTokVisualHelper {
             lastGlobalCheckMs.replace(dialogId, prevMs, nowMs)
         }
         if (claimed) {
+            checkGlobalVisualProfileAsync(account, dialogId)
             Thread {
                 var conn: HttpURLConnection? = null
                 try {
@@ -1190,6 +1299,7 @@ object MediaTokVisualHelper {
             remoteUpdatedAt = prev?.remoteUpdatedAt ?: 0L
         )
         saveOverride(dialogId, ov)
+        publishGlobalVisualProfileAsync(dialogId, ov)
         notifyPeerChanged(account, dialogId, fragment)
     }
 
