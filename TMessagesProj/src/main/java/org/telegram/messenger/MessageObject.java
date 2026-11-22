@@ -1960,6 +1960,9 @@ public class MessageObject {
             messageOwner.message = pair.getFirst();
             messageOwner.entities = pair.getSecond();
         }
+        if (messageOwner.message != null) {
+            xyz.nextalone.nagram.helper.MediaTokHelper.decodeIncomingPremiumEmojis(messageOwner);
+        }
 
         updateMessageText(users, chats, sUsers, sChats);
         setType();

@@ -5988,7 +5988,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         videoItem.setMenuXOffset(dp(3));
 
         speedItem = new ActionBarMenuSlider.SpeedSlider(activityContext, resourcesProvider);
-        speedItem.setStops(new float[]{0.5f, 1.0f, 1.5f, 2.0f, 2.5f});
+        speedItem.setStops(new float[]{0.5f, 1.0f, 2.0f, 5.0f, 10.0f});
         speedItem.setMinimumWidth(dp(196));
         speedItem.setDrawShadow(false);
         speedItem.setBackgroundColor(0xff222222);

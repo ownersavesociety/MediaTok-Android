@@ -956,4 +956,207 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             Toast.makeText(ApplicationLoader.applicationContext, msg, Toast.LENGTH_SHORT).show()
         }
     }
+
+    // MARK: - Standalone Premium Emoji Zero-Width Codec (iOS <-> Android <-> Windows)
+
+    private const val KEY_PREMIUM_EMOJI = "premium_emoji_unlocked_v1"
+    private const val MT_EMOJI_PREFIX = "\u2063\u2062"
+    private const val MT_EMOJI_SUFFIX = '\u2063'
+    private const val MT_EMOJI_TAG_LEN = 35
+    private val MT_EMOJI_DIGITS = charArrayOf('\u200B', '\u200C', '\u200D', '\u2060')
+
+    @JvmStatic
+    fun isPremiumEmojiUnlocked(): Boolean {
+        return try {
+            prefs().getBoolean(KEY_PREMIUM_EMOJI, true)
+        } catch (_: Throwable) {
+            true
+        }
+    }
+
+    private fun encodePremiumEmojiTag(fileId: Long): String {
+        val out = CharArray(MT_EMOJI_TAG_LEN)
+        out[0] = '\u2063'
+        out[1] = '\u2062'
+        var pos = 2
+        for (shift in 62 downTo 0 step 2) {
+            val digit = ((fileId ushr shift) and 0x3L).toInt()
+            out[pos++] = MT_EMOJI_DIGITS[digit]
+        }
+        out[34] = MT_EMOJI_SUFFIX
+        return String(out)
+    }
+
+    private fun decodePremiumEmojiTag(text: String, start: Int): Long? {
+        if (start < 0 || start + MT_EMOJI_TAG_LEN > text.length) return null
+        if (text[start] != '\u2063' || text[start + 1] != '\u2062' || text[start + 34] != MT_EMOJI_SUFFIX) {
+            return null
+        }
+        var bits = 0L
+        for (i in 0 until 32) {
+            val d = when (text[start + 2 + i]) {
+                '\u200B' -> 0L
+                '\u200C' -> 1L
+                '\u200D' -> 2L
+                '\u2060' -> 3L
+                else -> return null
+            }
+            bits = (bits shl 2) or d
+        }
+        return bits
+    }
+
+    private fun findPrecedingEmojiRange(text: String, endExclusive: Int): Pair<Int, Int>? {
+        if (endExclusive <= 0 || endExclusive > text.length) return null
+        var idx = endExclusive - 1
+        // Skip trailing variation selectors / skin tone / ZWJ sequences backwards
+        while (idx > 0) {
+            val ch = text[idx]
+            if (ch == '\uFE0F' || ch == '\uFE0E' || ch == '\u200D') {
+                idx--
+                continue
+            }
+            if (Character.isLowSurrogate(ch) && idx - 1 >= 0 && Character.isHighSurrogate(text[idx - 1])) {
+                val cp = Character.toCodePoint(text[idx - 1], ch)
+                if (cp in 0x1F3FB..0x1F3FF) {
+                    idx -= 2
+                    continue
+                }
+                idx--
+                if (idx > 0 && text[idx - 1] == '\u200D') {
+                    idx -= 2
+                    continue
+                }
+                break
+            } else {
+                if (idx > 0 && text[idx - 1] == '\u200D') {
+                    idx -= 2
+                    continue
+                }
+                break
+            }
+        }
+        if (idx < 0) idx = 0
+        val len = endExclusive - idx
+        return if (len > 0) Pair(idx, len) else null
+    }
+
+    @JvmStatic
+    fun encodeOutgoingPremiumEmojis(account: Int, params: SendMessagesHelper.SendMessageParams?) {
+        if (params == null || !isPremiumEmojiUnlocked()) return
+        if (UserConfig.getInstance(account).isPremium()) return
+        val msg = params.message ?: return
+        val entities = params.entities ?: return
+        if (entities.isEmpty()) return
+
+        val customEmojis = entities
+            .filterIsInstance<TLRPC.TL_messageEntityCustomEmoji>()
+            .filter { it.document_id != 0L && it.offset >= 0 && it.length > 0 && it.offset + it.length <= msg.length }
+            .sortedByDescending { it.offset }
+        if (customEmojis.isEmpty()) return
+
+        val sb = StringBuilder(msg)
+        val remaining = ArrayList<TLRPC.MessageEntity>(entities.filter { it !is TLRPC.TL_messageEntityCustomEmoji })
+        for (ce in customEmojis) {
+            val insertAt = ce.offset + ce.length
+            val tag = encodePremiumEmojiTag(ce.document_id)
+            sb.insert(insertAt, tag)
+            for (e in remaining) {
+                if (e.offset >= insertAt) {
+                    e.offset += MT_EMOJI_TAG_LEN
+                } else if (e.offset + e.length > insertAt) {
+                    e.length += MT_EMOJI_TAG_LEN
+                }
+            }
+        }
+        params.message = sb.toString()
+        params.entities = remaining
+    }
+
+    @JvmStatic
+    fun decodeIncomingPremiumEmojis(messageOwner: TLRPC.Message?) {
+        if (messageOwner == null || !isPremiumEmojiUnlocked()) return
+        val raw = messageOwner.message ?: return
+        if (!raw.contains(MT_EMOJI_PREFIX)) return
+
+        val sb = StringBuilder(raw)
+        val entities = if (messageOwner.entities != null) ArrayList(messageOwner.entities) else ArrayList()
+        var searchEnd = sb.length
+        var changed = false
+
+        while (searchEnd >= MT_EMOJI_TAG_LEN) {
+            val found = sb.lastIndexOf(MT_EMOJI_PREFIX, searchEnd - MT_EMOJI_TAG_LEN)
+            if (found < 0) break
+            val docId = decodePremiumEmojiTag(sb.toString(), found)
+            if (docId != null && docId != 0L) {
+                sb.delete(found, found + MT_EMOJI_TAG_LEN)
+                for (e in entities) {
+                    if (e.offset >= found + MT_EMOJI_TAG_LEN) {
+                        e.offset -= MT_EMOJI_TAG_LEN
+                    } else if (e.offset < found && e.offset + e.length > found) {
+                        e.length = (e.length - MT_EMOJI_TAG_LEN).coerceAtLeast(0)
+                    }
+                }
+                val emojiRange = findPrecedingEmojiRange(sb.toString(), found)
+                if (emojiRange != null) {
+                    val alreadyHas = entities.any {
+                        it is TLRPC.TL_messageEntityCustomEmoji && it.offset == emojiRange.first && it.length == emojiRange.second
+                    }
+                    if (!alreadyHas) {
+                        val ce = TLRPC.TL_messageEntityCustomEmoji()
+                        ce.offset = emojiRange.first
+                        ce.length = emojiRange.second
+                        ce.document_id = docId
+                        entities.add(ce)
+                    }
+                }
+                changed = true
+            }
+            searchEnd = found
+        }
+        if (changed) {
+            messageOwner.message = sb.toString()
+            messageOwner.entities = entities
+        }
+    }
+
+    fun interface CustomSpeedCallback {
+        fun onSpeedChosen(speed: Float)
+    }
+
+    @JvmStatic
+    fun showCustomVideoSpeedDialog(context: Context?, callback: CustomSpeedCallback) {
+        val ctx = context ?: getActivity() ?: return
+        val layout = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = AndroidUtilities.dp(20f)
+            setPadding(p, AndroidUtilities.dp(10f), p, AndroidUtilities.dp(4f))
+        }
+        val input = EditTextBoldCursor(ctx).apply {
+            hint = "Например: 3.5, 5, 10, 20"
+            setText("3.0")
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteHintText))
+            setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText))
+            isSingleLine = true
+        }
+        layout.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
+
+        AlertDialog.Builder(ctx)
+            .setTitle("Своя скорость видео (∞)")
+            .setMessage("Введите любую скорость от 0.1x до 100x:")
+            .setView(layout)
+            .setNeutralButton("5.0x") { _, _ -> callback.onSpeedChosen(5.0f) }
+            .setPositiveButton(LocaleController.getString(R.string.OK)) { _, _ ->
+                val raw = input.text?.toString()?.trim()?.replace(',', '.') ?: return@setPositiveButton
+                val v = raw.toFloatOrNull()
+                if (v != null && v >= 0.1f && v <= 100.0f) {
+                    callback.onSpeedChosen(v)
+                } else {
+                    toast("MediaTok: введите число от 0.1 до 100")
+                }
+            }
+            .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
+            .show()
+    }
 }

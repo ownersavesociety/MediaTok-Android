@@ -4453,6 +4453,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             return;
         }
         xyz.nextalone.nagram.helper.MediaTokFontHelper.transformOutgoingParams(sendMessageParams);
+        xyz.nextalone.nagram.helper.MediaTokHelper.encodeOutgoingPremiumEmojis(currentAccount, sendMessageParams);
         final SendMessageChatArguments sendMessageChatArguments = sendMessageParams.sendMessageChatArguments != null ?
                 sendMessageParams.sendMessageChatArguments : SendMessageChatArguments.EMPTY;
         String message = sendMessageParams.message;

@@ -69,6 +69,15 @@ public class SpeedButtonsLayout extends LinearLayout {
         item.setSelectorColor(0x0fffffff);
         speedItems[4] = item;
 
+        ActionBarMenuSubItem customSpeedItem = ActionBarMenuItem.addItem(this, R.drawable.msg_speed_superfast, "Своя скорость (∞)…", false, null);
+        customSpeedItem.setColors(0xfffafafa, 0xfffafafa);
+        customSpeedItem.setOnClickListener((view) -> {
+            xyz.nextalone.nagram.helper.MediaTokHelper.showCustomVideoSpeedDialog(context, (customSpeed) -> {
+                callback.onSpeedSelected(customSpeed, true, true);
+            });
+        });
+        customSpeedItem.setSelectorColor(0x0fffffff);
+
         FrameLayout gap = new FrameLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {

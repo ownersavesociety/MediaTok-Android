@@ -527,7 +527,7 @@ public class ActionBarMenuSlider extends FrameLayout {
         private final SeekBarAccessibilityDelegate seekBarAccessibilityDelegate;
 
         public static final float MIN_SPEED = 0.2f;
-        public static final float MAX_SPEED = 3.0f;
+        public static final float MAX_SPEED = 10.0f;
 
         public SpeedSlider(Context context, Theme.ResourcesProvider resourcesProvider) {
             super(context, resourcesProvider);
@@ -594,7 +594,7 @@ public class ActionBarMenuSlider extends FrameLayout {
         }
 
         public void setSpeed(float speed, boolean animated) {
-            setValue((speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), animated);
+            setValue(MathUtils.clamp((speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED), 0f, 1f), animated);
         }
 
         @Override
