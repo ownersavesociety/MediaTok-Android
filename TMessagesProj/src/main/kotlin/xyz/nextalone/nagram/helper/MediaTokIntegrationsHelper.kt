@@ -304,7 +304,7 @@ object MediaTokIntegrationsHelper {
             cardBg.orientation = LinearLayout.HORIZONTAL
             cardBg.gravity = Gravity.CENTER_VERTICAL
             cardBg.setPadding(AndroidUtilities.dp(14f), AndroidUtilities.dp(12f), AndroidUtilities.dp(14f), AndroidUtilities.dp(12f))
-            addView(cardBg, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
+            addView(cardBg, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT.toFloat()))
 
             cardBg.addView(iconView, LayoutHelper.createLinear(34, 34, Gravity.CENTER_VERTICAL, 0, 0, 12, 0))
 
@@ -944,7 +944,7 @@ object MediaTokIntegrationsHelper {
             }
             val wrap = FrameLayout(activity).apply {
                 setPadding(AndroidUtilities.dp(20f), AndroidUtilities.dp(8f), AndroidUtilities.dp(20f), 0)
-                addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT))
+                addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT.toFloat()))
             }
             AlertDialog.Builder(activity)
                 .setTitle("Вход через ${platform.title}")
