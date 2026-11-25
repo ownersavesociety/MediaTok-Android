@@ -1191,7 +1191,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     public void setBackgroundColor(int color) {
         actionBarColor = color;
         if (!blurredBackground) {
-            super.setBackgroundColor(actionBarColor);
+            Drawable liquidBg = xyz.nextalone.nagram.helper.MediaTokPowerHelper.createActionBarBackgroundIfEnabled(actionBarColor);
+            if (liquidBg != null) {
+                super.setBackground(liquidBg);
+            } else {
+                super.setBackgroundColor(actionBarColor);
+            }
         }
         if (backButtonImageView != null) {
             Drawable drawable = backButtonImageView.getDrawable();

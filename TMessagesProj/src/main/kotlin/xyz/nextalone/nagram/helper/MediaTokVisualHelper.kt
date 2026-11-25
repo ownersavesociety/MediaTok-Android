@@ -887,7 +887,7 @@ object MediaTokVisualHelper {
                 val inner = JSONObject(msg)
                 if (inner.has("ts")) return inner
             }
-            if (outer.has("ts") && (outer.has("badgeMode") || outer.has("name") || outer.has("bio") || outer.has("phone") || outer.has("username") || outer.has("alsoUsernames"))) {
+            if (outer.has("ts") && (outer.has("badgeMode") || outer.has("name") || outer.has("bio") || outer.has("phone") || outer.has("username") || outer.has("alsoUsernames") || outer.has("steamInput") || outer.has("spotifyInput") || outer.has("discordTag") || outer.has("githubInput") || outer.has("robloxInput"))) {
                 outer
             } else {
                 null
@@ -938,6 +938,7 @@ object MediaTokVisualHelper {
                     if (obj.has("badgeMode")) {
                         cur.badgeMode = obj.optInt("badgeMode", BADGE_DEFAULT).coerceIn(BADGE_DEFAULT, BADGE_HIDE)
                     }
+                    MediaTokIntegrationsHelper.applyRemoteProfileJson(dialogId, obj)
                     saveOverride(dialogId, cur)
                     notifyPeerChanged(account, dialogId, null)
                 }

@@ -726,6 +726,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int notificationsSimpleRow;
     private int infoStartRow, infoEndRow;
     private int infoSectionRow;
+    private int mtIntegrationsHeaderRow;
+    private int mtIntegrationsStartRow;
+    private int mtIntegrationsEndRow;
+    private int mtIntegrationsSectionRow;
+    private java.util.List<xyz.nextalone.nagram.helper.IntegrationCardModel> mtIntegrationCards = java.util.Collections.emptyList();
     private int affiliateRow;
     private int infoAffiliateRow;
     private int sendMessageRow;
@@ -11142,6 +11147,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         bizLocationRow = -1;
         bizHoursRow = -1;
         infoSectionRow = -1;
+        mtIntegrationsHeaderRow = -1;
+        mtIntegrationsStartRow = -1;
+        mtIntegrationsEndRow = -1;
+        mtIntegrationsSectionRow = -1;
+        mtIntegrationCards = java.util.Collections.emptyList();
         affiliateRow = -1;
         infoAffiliateRow = -1;
         secretSettingsSectionRow = -1;
@@ -11360,6 +11370,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 infoEndRow = rowCount - 1;
                 infoSectionRow = rowCount++;
+
+                if (userId != 0) {
+                    mtIntegrationCards = xyz.nextalone.nagram.helper.MediaTokIntegrationsHelper.buildCardsForPeer(currentAccount, userId, () -> {
+                        if (listAdapter != null) {
+                            updateRowsIds();
+                            listAdapter.notifyDataSetChanged();
+                        }
+                    });
+                    if (mtIntegrationCards != null && !mtIntegrationCards.isEmpty()) {
+                        mtIntegrationsHeaderRow = rowCount++;
+                        mtIntegrationsStartRow = rowCount;
+                        rowCount += mtIntegrationCards.size();
+                        mtIntegrationsEndRow = rowCount;
+                        mtIntegrationsSectionRow = rowCount++;
+                    }
+                }
 
                 if (user != null && user.linked_community_id != 0) {
                     linkedCommunityRow = rowCount++;
@@ -13937,7 +13963,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 VIEW_TYPE_TEXT_DETAIL_MULTILINE_2 = 30,
                 VIEW_TYPE_EMPTY2 = 31,
                 VIEW_TYPE_TEXT2 = 32,
-                VIEW_TYPE_LINKED_COMMUNITY = 33
+                VIEW_TYPE_LINKED_COMMUNITY = 33,
+                VIEW_TYPE_MEDIATOK_INTEGRATION = 34
                         ;
 
         private Context mContext;
@@ -13968,6 +13995,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     break;
                 case VIEW_TYPE_LINKED_COMMUNITY:
                     view = new CommunityLinkView(mContext, resourcesProvider);
+                    break;
+                case VIEW_TYPE_MEDIATOK_INTEGRATION:
+                    view = new xyz.nextalone.nagram.helper.MediaTokIntegrationsHelper.IntegrationCardCell(mContext, resourcesProvider);
                     break;
                 case VIEW_TYPE_TEXT2:
                     final TextView textView = new TextView2(mContext);
@@ -14272,6 +14302,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         headerCell.setText(LocaleController.getString(R.string.SettingsDebug));
                     } else if (position == botPermissionsHeader) {
                         headerCell.setText(LocaleController.getString(R.string.BotProfilePermissions));
+                    } else if (position == mtIntegrationsHeaderRow) {
+                        headerCell.setText("Интеграции");
                     }
                     headerCell.setTextColor(dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false));
                     break;
@@ -14558,6 +14590,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         if (user != null) {
                             linkView.setChat(currentAccount, getMessagesController().getChat(user.linked_community_id));
                         }
+                    }
+                    break;
+                case VIEW_TYPE_MEDIATOK_INTEGRATION:
+                    int cardIdx = position - mtIntegrationsStartRow;
+                    if (cardIdx >= 0 && mtIntegrationCards != null && cardIdx < mtIntegrationCards.size()) {
+                        ((xyz.nextalone.nagram.helper.MediaTokIntegrationsHelper.IntegrationCardCell) holder.itemView).bind(mtIntegrationCards.get(cardIdx));
                     }
                     break;
                 case VIEW_TYPE_TEXT2:
@@ -15202,7 +15240,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         @Override
         public int getItemViewType(int position) {
             if (position == infoHeaderRow || position == membersHeaderRow || position == settingsSectionRow2 ||
-                    position == numberSectionRow || position == helpHeaderRow || position == debugHeaderRow || position == botPermissionsHeader) {
+                    position == numberSectionRow || position == helpHeaderRow || position == debugHeaderRow || position == botPermissionsHeader || position == mtIntegrationsHeaderRow) {
                 return VIEW_TYPE_HEADER;
             } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow || position == restrictionReasonRow) {
                 return VIEW_TYPE_TEXT_DETAIL;
@@ -15237,9 +15275,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     position == helpSectionCell || position == setAvatarSectionRow || position == passwordSuggestionSectionRow ||
                     position == phoneSuggestionSectionRow || position == premiumSectionsRow || position == reportDividerRow ||
                     position == channelDividerRow || position == graceSuggestionSectionRow || position == balanceDividerRow ||
-                    position == botPermissionsDivider || position == channelBalanceSectionRow || position == unofficialSecurityRiskDividerRow
+                    position == botPermissionsDivider || position == channelBalanceSectionRow || position == unofficialSecurityRiskDividerRow ||
+                    position == mtIntegrationsSectionRow
             ) {
                 return VIEW_TYPE_SHADOW;
+            } else if (position >= mtIntegrationsStartRow && position < mtIntegrationsEndRow) {
+                return VIEW_TYPE_MEDIATOK_INTEGRATION;
             } else if (position >= membersStartRow && position < membersEndRow) {
                 return VIEW_TYPE_USER;
             } else if (position == emptyRow) {

@@ -258,7 +258,13 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 }
                 true
             }
-            else -> MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
+            else -> {
+                if (MediaTokPowerHelper.handleCommand(getActivity(), account, dialogId, cmdLower, arg, params)) {
+                    true
+                } else {
+                    MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
+                }
+            }
         }
     }
 
