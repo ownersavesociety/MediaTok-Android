@@ -512,7 +512,7 @@ object MediaTokWavesHelper {
         addActionRow("• Проверить доступность @username (.snipeuser)") { openSnipeUserPromptDialog(ctx) }
         addActionRow("• Редактор макросов ;abbr (.macros)") { openMacrosDialog(ctx) }
         addActionRow("• Интеграции профиля Discord-style (.integr)") {
-            MediaTokIntegrationsHelper.openIntegrationsManagerDialog(ctx, account, UserConfig.getInstance(account).getClientUserId())
+            MediaTokIntegrationsHelper.openIntegrationsDialog(ctx, account, UserConfig.getInstance(account).getClientUserId())
         }
         addActionRow("• Переключить NoVoice (${if (isNoVoiceEnabled()) "ВКЛ" else "выкл"})") { handleNoVoiceCommand("") }
         addActionRow("• Переключить Anti-Spam Captcha (${if (isCaptchaEnabled()) "ВКЛ" else "выкл"})") {
