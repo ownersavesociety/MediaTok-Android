@@ -40,7 +40,7 @@ import java.util.Locale
 object MediaTokPowerHelper {
 
     private const val PREFS_NAME = "mediatok_prefs"
-    private const val KEY_LIQUID_BAR = "mt_ios27_liquid_bar"
+    private const val KEY_LIQUID_BAR = "mt_ios27_liquid_bar_v2"
 
     private fun prefs(): SharedPreferences =
         ApplicationLoader.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -48,7 +48,7 @@ object MediaTokPowerHelper {
     // MARK: - iOS 27 Liquid Glass Iridescent Prismatic Top Bar
 
     @JvmStatic
-    fun isLiquidGlassBarEnabled(): Boolean = prefs().getBoolean(KEY_LIQUID_BAR, true)
+    fun isLiquidGlassBarEnabled(): Boolean = prefs().getBoolean(KEY_LIQUID_BAR, false)
 
     @JvmStatic
     fun setLiquidGlassBarEnabled(enabled: Boolean) {

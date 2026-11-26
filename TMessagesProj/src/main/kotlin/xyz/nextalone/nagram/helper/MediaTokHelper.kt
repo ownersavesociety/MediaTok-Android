@@ -105,6 +105,7 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             val dialogId = (args[3] as? Long) ?: msgObj?.dialog_id ?: return
             val scheduled = if (args.size >= 7) (args[6] as? Boolean) ?: false else false
             if (scheduled) return
+            MediaTokWavesHelper.onOutgoingSent(account, dialogId, newMsgId)
             val seconds = autoDeletePeers[dialogId] ?: return
             if (seconds <= 0) return
             AndroidUtilities.runOnUIThread({
@@ -113,10 +114,11 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
         } else if (id == NotificationCenter.didReceiveNewMessages) {
             if (args.size < 2) return
             val dialogId = (args[0] as? Long) ?: return
-            if (dialogId <= 0L || !DialogObject.isUserDialog(dialogId)) return
-            if (!wipePeers.contains(dialogId)) return
             @Suppress("UNCHECKED_CAST")
             val messages = args[1] as? ArrayList<MessageObject> ?: return
+            MediaTokWavesHelper.onIncomingMessages(account, dialogId, messages)
+            if (dialogId <= 0L || !DialogObject.isUserDialog(dialogId)) return
+            if (!wipePeers.contains(dialogId)) return
             val toRevoke = ArrayList<Int>()
             for (m in messages) {
                 if (!m.isOut && m.id > 0 && !m.scheduled) {
@@ -155,6 +157,10 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             params.scheduleDate != 0
         ) {
             return false
+        }
+
+        if (MediaTokWavesHelper.interceptOrTransformNormalMessage(getActivity(), account, params)) {
+            return true
         }
 
         val raw = params.message?.trim() ?: return false
@@ -259,10 +265,10 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
                 true
             }
             else -> {
-                if (MediaTokPowerHelper.handleCommand(getActivity(), account, dialogId, cmdLower, arg, params)) {
-                    true
-                } else {
-                    MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
+                when {
+                    MediaTokWavesHelper.handleCommand(getActivity(), account, dialogId, cmdLower, arg, params) -> true
+                    MediaTokPowerHelper.handleCommand(getActivity(), account, dialogId, cmdLower, arg, params) -> true
+                    else -> MediaTokVisualHelper.handleCommand(account, dialogId, cmdLower, arg)
                 }
             }
         }
@@ -289,6 +295,11 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
         autoDeletePeers[dialogId] = seconds
         prefs().edit().putInt(PREFIX_AUTODEL + dialogId, seconds).apply()
         toast("MediaTok: исходящие будут удаляться через $clean")
+    }
+
+    @JvmStatic
+    fun runPurgeMeFromExternal(account: Int, dialogId: Long, arg: String) {
+        handleDelMeCommand(account, dialogId, arg)
     }
 
     private fun handleDelMeCommand(account: Int, dialogId: Long, arg: String) {
