@@ -40,10 +40,12 @@ import org.telegram.ui.LaunchActivity
 import org.telegram.ui.ProfileActivity
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
+import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
@@ -758,13 +760,29 @@ object MediaTokVisualHelper {
                 out.flush()
             }
             if (conn.responseCode !in 200..299) return null
-            val res = conn.inputStream.bufferedReader().use { it.readText().trim() }
-            if (res.startsWith("https://")) res else null
+            val res = readTextBounded(conn.inputStream, 4096).trim()
+            if (isSafeCatboxMediaUrl(res)) res else null
         } catch (e: Throwable) {
             FileLog.e(e)
             null
         } finally {
             conn?.disconnect()
+        }
+    }
+
+    private fun readTextBounded(input: InputStream, maxBytes: Int = 512 * 1024): String {
+        return BufferedInputStream(input).use { bis ->
+            val baos = ByteArrayOutputStream()
+            val buf = ByteArray(8192)
+            var total = 0
+            while (total < maxBytes) {
+                val toRead = minOf(buf.size, maxBytes - total)
+                val n = bis.read(buf, 0, toRead)
+                if (n <= 0) break
+                baos.write(buf, 0, n)
+                total += n
+            }
+            String(baos.toByteArray(), Charsets.UTF_8)
         }
     }
 
@@ -797,7 +815,7 @@ object MediaTokVisualHelper {
                 setRequestProperty("User-Agent", "MediaTok/4K")
             }
             if (conn.responseCode !in 200..299) return false
-            val declaredLen = conn.contentLengthLong
+            val declaredLen = conn.getHeaderField("Content-Length")?.trim()?.toLongOrNull() ?: -1L
             if (declaredLen > maxBytes) return false
             var total = 0L
             BufferedInputStream(conn.inputStream).use { input ->
@@ -938,37 +956,38 @@ object MediaTokVisualHelper {
                 conn = (URL("https://ntfy.sh/mtprof_v1_${dialogId}/json?poll=1&since=all").openConnection() as HttpURLConnection).apply {
                     connectTimeout = 10000
                     readTimeout = 15000
+                    instanceFollowRedirects = false
                     setRequestProperty("User-Agent", "MediaTok/ProfileSync")
                 }
                 if (conn.responseCode !in 200..299) return@Thread
-                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val body = readTextBounded(conn.inputStream, 512 * 1024)
+                val maxTs = (System.currentTimeMillis() / 1000L) + 300L
                 var latestObj: JSONObject? = null
                 var latestTs = 0L
                 for (line in body.lines()) {
                     val cand = unwrapNtfyProfileJson(line) ?: continue
                     val ts = cand.optLong("ts", 0L)
-                    if (ts >= latestTs) {
+                    if (ts in 1L..maxTs && ts >= latestTs) {
                         latestTs = ts
                         latestObj = cand
                     }
                 }
                 val obj = latestObj ?: return@Thread
-                if (latestTs <= 0L) return@Thread
                 val syncKey = "vis_prof_ts_$dialogId"
                 val prevTs = prefs().getLong(syncKey, 0L)
-                if (latestTs <= prevTs) return@Thread
+                if (latestTs <= 0L || latestTs > maxTs || latestTs <= prevTs) return@Thread
                 prefs().edit().putLong(syncKey, latestTs).apply()
                 AndroidUtilities.runOnUIThread {
                     val cur = getOverride(dialogId)?.copy() ?: VisualPeerOverride()
-                    if (obj.has("name")) cur.name = obj.optString("name", "")
-                    if (obj.has("username")) cur.username = normalizeUsername(obj.optString("username", ""))
-                    if (obj.has("alsoUsernames")) cur.alsoUsernames = obj.optString("alsoUsernames", "")
-                    val mainPhone = obj.optString("phone", "")
-                    val alsoPhones = obj.optString("alsoPhones", "")
+                    if (obj.has("name")) cur.name = obj.optString("name", "").take(128)
+                    if (obj.has("username")) cur.username = normalizeUsername(obj.optString("username", "")).take(128)
+                    if (obj.has("alsoUsernames")) cur.alsoUsernames = obj.optString("alsoUsernames", "").take(128)
+                    val mainPhone = obj.optString("phone", "").take(128)
+                    val alsoPhones = obj.optString("alsoPhones", "").take(128)
                     if (mainPhone.isNotEmpty() || alsoPhones.isNotEmpty()) {
-                        cur.phone = listOf(mainPhone, alsoPhones).filter { it.isNotBlank() }.joinToString(" • ")
+                        cur.phone = listOf(mainPhone, alsoPhones).filter { it.isNotBlank() }.joinToString(" • ").take(128)
                     }
-                    if (obj.has("bio")) cur.bio = obj.optString("bio", "")
+                    if (obj.has("bio")) cur.bio = obj.optString("bio", "").take(512)
                     if (obj.has("badgeMode")) {
                         cur.badgeMode = obj.optInt("badgeMode", BADGE_DEFAULT).coerceIn(BADGE_DEFAULT, BADGE_HIDE)
                     }
@@ -1003,10 +1022,11 @@ object MediaTokVisualHelper {
                     conn = (URL("https://ntfy.sh/mt4k_v1_${dialogId}/raw?poll=1&since=all").openConnection() as HttpURLConnection).apply {
                         connectTimeout = 10000
                         readTimeout = 15000
+                        instanceFollowRedirects = false
                         setRequestProperty("User-Agent", "MediaTok/4K")
                     }
                     if (conn.responseCode !in 200..299) return@Thread
-                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val body = readTextBounded(conn.inputStream, 512 * 1024)
                     val lines = body.lines().asReversed()
                     var latestObj: JSONObject? = null
                     for (line in lines) {

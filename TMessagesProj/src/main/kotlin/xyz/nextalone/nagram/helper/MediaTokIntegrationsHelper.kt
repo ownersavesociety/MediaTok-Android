@@ -559,6 +559,12 @@ object MediaTokIntegrationsHelper {
         }
     }
 
+    private fun sanitizeHandle(raw: String): String {
+        val noQuery = raw.trim().substringBefore('?').substringBefore('#').trim('/').removePrefix("@")
+        val firstSeg = noQuery.substringBefore('/').trim()
+        return firstSeg.replace(Regex("[^A-Za-z0-9._-]"), "")
+    }
+
     @JvmStatic
     fun buildCardsForPeer(account: Int, dialogId: Long, onRefresh: Runnable?): List<IntegrationCardModel> {
         if (dialogId <= 0L) return emptyList()
@@ -586,9 +592,14 @@ object MediaTokIntegrationsHelper {
             cards.add(IntegrationCardModel("github", "github", r.username, r.memberSince, r.primaryBold, r.primaryLabel, r.secondaryBold, r.secondaryLabel, r.url))
         }
         if (data.twitchInput.isNotBlank()) {
-            val clean = data.twitchInput.trim().removePrefix("https://").removePrefix("http://").removePrefix("www.").removePrefix("twitch.tv/").trim('/')
-            val r = resolveTwitch(clean, onRefresh)
-            cards.add(IntegrationCardModel("twitch", "twitch", r.username, r.memberSince, r.primaryBold, r.primaryLabel, null, null, r.url))
+            val rawClean = data.twitchInput.trim()
+                .replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
+                .replaceFirst(Regex("^twitch\\.tv/", RegexOption.IGNORE_CASE), "")
+            val clean = sanitizeHandle(rawClean)
+            if (clean.isNotEmpty()) {
+                val r = resolveTwitch(clean, onRefresh)
+                cards.add(IntegrationCardModel("twitch", "twitch", r.username, r.memberSince, r.primaryBold, r.primaryLabel, null, null, r.url))
+            }
         }
         if (data.youtubeInput.isNotBlank()) {
             val raw = data.youtubeInput.trim()
@@ -601,12 +612,24 @@ object MediaTokIntegrationsHelper {
             cards.add(IntegrationCardModel("discord", "discord", data.discordTag.trim(), "Discord", null, null, null, null, ""))
         }
         if (data.tiktokInput.isNotBlank()) {
-            val handle = data.tiktokInput.trim().removePrefix("@")
-            cards.add(IntegrationCardModel("tiktok", "tiktok", "@$handle", "TikTok", null, null, null, null, "https://www.tiktok.com/@$handle"))
+            val rawHandle = data.tiktokInput.trim()
+                .replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
+                .replaceFirst(Regex("^tiktok\\.com/", RegexOption.IGNORE_CASE), "")
+            val handle = sanitizeHandle(rawHandle)
+            if (handle.isNotEmpty()) {
+                val url = sanitizeHttpsUrl("https://www.tiktok.com/@${Uri.encode(handle)}", listOf("tiktok.com"), "https://www.tiktok.com/")
+                cards.add(IntegrationCardModel("tiktok", "tiktok", "@$handle", "TikTok", null, null, null, null, url))
+            }
         }
         if (data.kickInput.isNotBlank()) {
-            val handle = data.kickInput.trim().removePrefix("https://kick.com/").trim('/')
-            cards.add(IntegrationCardModel("kick", "kick", handle, "Kick", null, null, null, null, "https://kick.com/$handle"))
+            val rawHandle = data.kickInput.trim()
+                .replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
+                .replaceFirst(Regex("^kick\\.com/", RegexOption.IGNORE_CASE), "")
+            val handle = sanitizeHandle(rawHandle)
+            if (handle.isNotEmpty()) {
+                val url = sanitizeHttpsUrl("https://kick.com/${Uri.encode(handle)}", listOf("kick.com"), "https://kick.com/")
+                cards.add(IntegrationCardModel("kick", "kick", handle, "Kick", null, null, null, null, url))
+            }
         }
         return cards
     }
@@ -735,8 +758,18 @@ object MediaTokIntegrationsHelper {
     }
 
     private fun resolveGithub(input: String, onRefresh: Runnable?): ResolvedConn {
-        val login = input.trim().removePrefix("https://").removePrefix("http://").removePrefix("www.").removePrefix("github.com/").trim('/').removePrefix("@")
-        val profileUrl = "https://github.com/$login"
+        val rawLogin = input.trim()
+            .replaceFirst(Regex("^https?://(www\\.)?", RegexOption.IGNORE_CASE), "")
+            .replaceFirst(Regex("^github\\.com/", RegexOption.IGNORE_CASE), "")
+        val login = sanitizeHandle(rawLogin)
+        val profileUrl = if (login.isNotEmpty()) {
+            sanitizeHttpsUrl("https://github.com/${Uri.encode(login)}", listOf("github.com"), "https://github.com/")
+        } else {
+            "https://github.com/"
+        }
+        if (login.isEmpty()) {
+            return ResolvedConn("GitHub", "GitHub", null, null, null, null, profileUrl, 0L)
+        }
         val key = "github:${login.lowercase(Locale.ROOT)}"
         val now = System.currentTimeMillis()
         val cached = resolvedCache[key]
@@ -813,15 +846,23 @@ object MediaTokIntegrationsHelper {
     }
 
     private fun resolveTwitch(login: String, onRefresh: Runnable?): ResolvedConn {
-        val url = "https://www.twitch.tv/$login"
-        val key = "twitch:${login.lowercase(Locale.ROOT)}"
+        val cleanLogin = sanitizeHandle(login)
+        val url = if (cleanLogin.isNotEmpty()) {
+            sanitizeHttpsUrl("https://www.twitch.tv/${Uri.encode(cleanLogin)}", listOf("twitch.tv"), "https://www.twitch.tv/")
+        } else {
+            "https://www.twitch.tv/"
+        }
+        if (cleanLogin.isEmpty()) {
+            return ResolvedConn("Twitch", "Twitch", null, null, null, null, url, 0L)
+        }
+        val key = "twitch:${cleanLogin.lowercase(Locale.ROOT)}"
         val now = System.currentTimeMillis()
         val cached = resolvedCache[key]
         if ((cached == null || now - cached.fetchedAtMs > 180_000L) && inFlight.add(key)) {
             Thread {
                 var conn: HttpURLConnection? = null
                 try {
-                    conn = (URL("https://decapi.me/twitch/uptime/${URLEncoder.encode(login, "UTF-8")}").openConnection() as HttpURLConnection).apply {
+                    conn = (URL("https://decapi.me/twitch/uptime/${URLEncoder.encode(cleanLogin, "UTF-8")}").openConnection() as HttpURLConnection).apply {
                         connectTimeout = 8000
                         readTimeout = 8000
                     }
@@ -830,7 +871,7 @@ object MediaTokIntegrationsHelper {
                         val low = txt.lowercase(Locale.ROOT)
                         val offline = low.contains("offline") || low.contains("error") || low.contains("not found") || txt.isEmpty()
                         resolvedCache[key] = ResolvedConn(
-                            login, "Twitch",
+                            cleanLogin, "Twitch",
                             if (offline) "Офлайн" else "В эфире",
                             if (offline) null else txt.take(36),
                             null, null, url, System.currentTimeMillis()
@@ -844,7 +885,7 @@ object MediaTokIntegrationsHelper {
                 }
             }.start()
         }
-        return cached ?: ResolvedConn(login, "Twitch", null, null, null, null, url, 0L)
+        return cached ?: ResolvedConn(cleanLogin, "Twitch", null, null, null, null, url, 0L)
     }
 
     // MARK: - Real Sign-In Manager UI (Steam OpenID 2.0 + OAuth 2.0 PKCE)

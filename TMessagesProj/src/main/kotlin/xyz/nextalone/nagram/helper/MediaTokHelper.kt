@@ -586,7 +586,12 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
 
     private fun callGemini(apiKey: String, prompt: String, media: Pair<File, String>?): String {
         val configuredModel = NaConfig.llmGeminiModel.String()?.trim().orEmpty()
-        val model = if (configuredModel.isNotEmpty() && configuredModel.contains("gemini", ignoreCase = true)) {
+        val model = if (
+            configuredModel.isNotEmpty() &&
+            configuredModel.contains("gemini", ignoreCase = true) &&
+            configuredModel.matches(Regex("^[A-Za-z0-9._-]+$")) &&
+            !configuredModel.contains("..")
+        ) {
             configuredModel
         } else {
             "gemini-2.5-flash"
