@@ -768,23 +768,56 @@ object MediaTokVisualHelper {
         }
     }
 
-    private fun downloadUrlToFile(urlStr: String, dst: File): Boolean {
-        if (!urlStr.startsWith("https://")) return false
+    private fun isSafeCatboxMediaUrl(urlStr: String): Boolean {
+        val trimmed = urlStr.trim()
+        if (!trimmed.startsWith("https://")) return false
+        return try {
+            val u = URL(trimmed)
+            val path = u.path.orEmpty()
+            u.protocol.equals("https", ignoreCase = true)
+                && u.host.equals("files.catbox.moe", ignoreCase = true)
+                && u.userInfo.isNullOrEmpty()
+                && u.port == -1
+                && path.startsWith("/")
+                && path.length > 2
+                && !path.contains("..")
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    private fun downloadUrlToFile(urlStr: String, dst: File, maxBytes: Long = 15L * 1024L * 1024L): Boolean {
+        if (!isSafeCatboxMediaUrl(urlStr)) return false
         var conn: HttpURLConnection? = null
         return try {
             conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15000
                 readTimeout = 45000
+                instanceFollowRedirects = false
                 setRequestProperty("User-Agent", "MediaTok/4K")
             }
             if (conn.responseCode !in 200..299) return false
+            val declaredLen = conn.contentLengthLong
+            if (declaredLen > maxBytes) return false
+            var total = 0L
             BufferedInputStream(conn.inputStream).use { input ->
                 FileOutputStream(dst).use { output ->
-                    input.copyTo(output, 65536)
+                    val buf = ByteArray(65536)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n <= 0) break
+                        total += n
+                        if (total > maxBytes) {
+                            output.flush()
+                            dst.delete()
+                            return false
+                        }
+                        output.write(buf, 0, n)
+                    }
                     output.flush()
                 }
             }
-            dst.exists() && dst.length() > 0L
+            dst.exists() && dst.length() in 1L..maxBytes
         } catch (e: Throwable) {
             FileLog.e(e)
             dst.delete()
@@ -795,6 +828,7 @@ object MediaTokVisualHelper {
     }
 
     private fun publishGlobal4kAvatarAsync(account: Int, dialogId: Long, photoFile: File?, videoFile: File?, ts: Long) {
+        if (dialogId != UserConfig.getInstance(account).getClientUserId()) return
         Thread {
             try {
                 val pUrl = photoFile?.let { uploadToCatbox(it) }.orEmpty()
@@ -980,8 +1014,8 @@ object MediaTokVisualHelper {
                         if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
                             try {
                                 val cand = JSONObject(trimmed)
-                                if (cand.optString("photoUrl", "").startsWith("https://") ||
-                                    cand.optString("videoUrl", "").startsWith("https://")) {
+                                if (isSafeCatboxMediaUrl(cand.optString("photoUrl", "")) ||
+                                    isSafeCatboxMediaUrl(cand.optString("videoUrl", ""))) {
                                     latestObj = cand
                                     break
                                 }
@@ -991,16 +1025,17 @@ object MediaTokVisualHelper {
                     }
                     val obj = latestObj ?: return@Thread
                     val remoteTs = obj.optLong("ts", 0L)
+                    val maxTs = (System.currentTimeMillis() / 1000L) + 300L
                     val photoUrl = obj.optString("photoUrl", "")
                     val videoUrl = obj.optString("videoUrl", "")
                     val cur = getOverride(dialogId)
-                    if (remoteTs <= 0L || remoteTs <= (cur?.remoteUpdatedAt ?: 0L)) return@Thread
+                    if (remoteTs <= 0L || remoteTs > maxTs || remoteTs <= (cur?.remoteUpdatedAt ?: 0L)) return@Thread
                     if (photoUrl.isEmpty() && videoUrl.isEmpty()) return@Thread
 
-                    val photoDst = if (photoUrl.startsWith("https://")) File(avatarStorageDir(), "avatar_${dialogId}_${remoteTs}.jpg") else null
-                    val videoDst = if (videoUrl.startsWith("https://")) File(avatarStorageDir(), "avatar_vid_${dialogId}_${remoteTs}.mp4") else null
+                    val photoDst = if (isSafeCatboxMediaUrl(photoUrl)) File(avatarStorageDir(), "avatar_${dialogId}_${remoteTs}.jpg") else null
+                    val videoDst = if (isSafeCatboxMediaUrl(videoUrl)) File(avatarStorageDir(), "avatar_vid_${dialogId}_${remoteTs}.mp4") else null
                     val photoOk = if (photoDst != null) {
-                        downloadUrlToFile(photoUrl, photoDst) && run {
+                        downloadUrlToFile(photoUrl, photoDst, 15L * 1024L * 1024L) && run {
                             val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                             BitmapFactory.decodeFile(photoDst.absolutePath, b)
                             b.outWidth > 0 && b.outHeight > 0
@@ -1008,7 +1043,7 @@ object MediaTokVisualHelper {
                     } else {
                         false
                     }
-                    val videoOk = if (videoDst != null) downloadUrlToFile(videoUrl, videoDst) else false
+                    val videoOk = if (videoDst != null) downloadUrlToFile(videoUrl, videoDst, 25L * 1024L * 1024L) else false
                     if (!photoOk && !videoOk) {
                         photoDst?.delete()
                         videoDst?.delete()
@@ -1300,7 +1335,9 @@ object MediaTokVisualHelper {
             remoteUpdatedAt = prev?.remoteUpdatedAt ?: 0L
         )
         saveOverride(dialogId, ov)
-        publishGlobalVisualProfileAsync(dialogId, ov)
+        if (dialogId == UserConfig.getInstance(account).getClientUserId()) {
+            publishGlobalVisualProfileAsync(dialogId, ov)
+        }
         notifyPeerChanged(account, dialogId, fragment)
     }
 

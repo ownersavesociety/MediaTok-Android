@@ -334,9 +334,14 @@ object MediaTokIntegrationsHelper {
                     copyToClipboard(context, c.username)
                 } else {
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(c.profileUrl))
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
+                        val uri = Uri.parse(c.profileUrl)
+                        if (uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank()) {
+                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        } else {
+                            copyToClipboard(context, c.username)
+                        }
                     } catch (_: Throwable) {
                         copyToClipboard(context, c.profileUrl)
                     }
@@ -533,6 +538,27 @@ object MediaTokIntegrationsHelper {
 
     // MARK: - Build Cards for ProfileActivity
 
+    private fun sanitizeHttpsUrl(raw: String, allowedDomains: List<String>, fallback: String = ""): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return fallback
+        return try {
+            val u = URL(trimmed)
+            val host = u.host.lowercase(Locale.ROOT)
+            val allowed = allowedDomains.any { d -> host == d || host.endsWith(".$d") }
+            if (u.protocol.equals("https", ignoreCase = true)
+                && allowed
+                && u.userInfo.isNullOrEmpty()
+                && u.port == -1
+            ) {
+                trimmed
+            } else {
+                fallback
+            }
+        } catch (_: Throwable) {
+            fallback
+        }
+    }
+
     @JvmStatic
     fun buildCardsForPeer(account: Int, dialogId: Long, onRefresh: Runnable?): List<IntegrationCardModel> {
         if (dialogId <= 0L) return emptyList()
@@ -547,7 +573,8 @@ object MediaTokIntegrationsHelper {
         if (data.spotifyInput.isNotBlank()) {
             val parts = data.spotifyInput.split("|", limit = 2)
             val name = parts[0].trim().ifEmpty { "Spotify" }
-            val url = if (parts.size > 1) parts[1].trim() else "https://open.spotify.com/"
+            val rawUrl = if (parts.size > 1) parts[1].trim() else "https://open.spotify.com/"
+            val url = sanitizeHttpsUrl(rawUrl, listOf("spotify.com"), "https://open.spotify.com/")
             cards.add(IntegrationCardModel("spotify", "spotify", name, "Spotify", null, null, null, null, url))
         }
         if (data.robloxInput.isNotBlank()) {
@@ -565,7 +592,8 @@ object MediaTokIntegrationsHelper {
         }
         if (data.youtubeInput.isNotBlank()) {
             val raw = data.youtubeInput.trim()
-            val url = if (raw.startsWith("http")) raw else "https://www.youtube.com/${if (raw.startsWith("@")) raw else "@$raw"}"
+            val candidate = if (raw.startsWith("https://", ignoreCase = true)) raw else "https://www.youtube.com/${if (raw.startsWith("@")) raw else "@$raw"}"
+            val url = sanitizeHttpsUrl(candidate, listOf("youtube.com", "youtu.be"), "https://www.youtube.com/")
             val name = raw.removePrefix("https://").removePrefix("http://").removePrefix("www.").removePrefix("youtube.com/").trim('/')
             cards.add(IntegrationCardModel("youtube", "youtube", name.ifEmpty { "YouTube" }, "YouTube", null, null, null, null, url))
         }
@@ -640,10 +668,23 @@ object MediaTokIntegrationsHelper {
 
     private fun resolveSteam(input: String, onRefresh: Runnable?): ResolvedConn {
         val clean = input.trim()
-        val profileUrl = when {
-            clean.startsWith("http://") || clean.startsWith("https://") -> clean.trimEnd('/')
+        val candidateUrl = when {
+            clean.startsWith("https://", ignoreCase = true) || clean.startsWith("http://", ignoreCase = true) -> clean.trimEnd('/')
             clean.all { it.isDigit() } && clean.length >= 16 -> "https://steamcommunity.com/profiles/$clean"
-            else -> "https://steamcommunity.com/id/$clean"
+            else -> "https://steamcommunity.com/id/${Uri.encode(clean)}"
+        }
+        val profileUrl = sanitizeHttpsUrl(candidateUrl, listOf("steamcommunity.com"), "")
+        if (profileUrl.isEmpty()) {
+            return ResolvedConn(
+                username = "Steam",
+                memberSince = "Steam",
+                primaryBold = null,
+                primaryLabel = null,
+                secondaryBold = null,
+                secondaryLabel = null,
+                url = "https://steamcommunity.com/",
+                fetchedAtMs = System.currentTimeMillis()
+            )
         }
         val key = "steam:${profileUrl.lowercase(Locale.ROOT)}"
         val now = System.currentTimeMillis()
@@ -655,6 +696,7 @@ object MediaTokIntegrationsHelper {
                     conn = (URL("$profileUrl?xml=1").openConnection() as HttpURLConnection).apply {
                         connectTimeout = 9000
                         readTimeout = 9000
+                        instanceFollowRedirects = false
                         setRequestProperty("User-Agent", "MediaTok/Steam")
                     }
                     val xml = conn.inputStream.bufferedReader().use { it.readText() }

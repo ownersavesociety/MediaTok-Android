@@ -616,18 +616,29 @@ object MediaTokHelper : NotificationCenter.NotificationCenterDelegate {
             }))
         }.toString()
 
-        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
+        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 20000
             readTimeout = 45000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            setRequestProperty("x-goog-api-key", apiKey)
         }
-        OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
-        val code = conn.responseCode
-        val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-        val respText = BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
+        val code: Int
+        val respText: String
+        try {
+            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+            code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            respText = if (stream != null) {
+                BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
+            } else {
+                ""
+            }
+        } finally {
+            conn.disconnect()
+        }
         if (code !in 200..299) {
             val errMsg = try {
                 JSONObject(respText).optJSONObject("error")?.optString("message").orEmpty()
